@@ -333,6 +333,7 @@
         };
 
         const STATE_WAITING = 'waiting'; // Waiting for opponent
+        const STATE_COUNTDOWN = 'countdown'; // Ready countdown
         const STATE_CONTROL = 'control';
         const STATE_FALLING = 'falling';
         const STATE_MATCHING = 'matching';
@@ -391,7 +392,8 @@
                 try {
                     // カスタムトークンを廃止し、ご自身のプロジェクトの匿名認証を使用します
                     await signInAnonymously(auth);
-                    userId = auth.currentUser.uid;
+                    // 同一ブラウザの別タブでテスト（1人2役）した場合でもマッチングできるように、タブ固有のIDを付加
+                    userId = auth.currentUser.uid + '_' + Math.random().toString(36).substr(2, 9);
                 } catch (e) {
                     this.showOverlay("AUTH FAILED", "認証エラー", "ログインに失敗しました。<br>Firebaseコンソールで「Authentication > 匿名」が有効になっているか確認してください。");
                     console.error(e);
@@ -505,7 +507,6 @@
             }
 
             startGame() {
-                document.getElementById('overlay-message').classList.add('hidden');
                 document.getElementById('opponent-container').classList.remove('hidden');
                 
                 this.grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
@@ -517,7 +518,45 @@
                 this.updateUI();
                 
                 this.generateNext();
-                this.spawnPair();
+                
+                // カウントダウンを開始
+                this.gameState = STATE_COUNTDOWN;
+                this.startCountdown();
+            }
+
+            startCountdown() {
+                const overlay = document.getElementById('overlay-message');
+                const title = document.getElementById('overlay-title');
+                const desc = document.getElementById('overlay-desc');
+                const btn = document.getElementById('restart-btn');
+                
+                btn.classList.add('hidden');
+                overlay.classList.remove('hidden');
+                
+                title.className = "text-5xl font-black text-yellow-400 retro-font tracking-wider mb-2 text-center drop-shadow-lg";
+                desc.innerHTML = "対戦相手が見つかりました！<br>準備してください...";
+                
+                let count = 3;
+                title.textContent = "READY?";
+                
+                const countInterval = setInterval(() => {
+                    if (count > 0) {
+                        title.textContent = count;
+                        sound.playPop(1.2 + (3 - count) * 0.2); // ピッ
+                        count--;
+                    } else {
+                        clearInterval(countInterval);
+                        title.className = "text-6xl font-black text-red-500 retro-font tracking-wider mb-2 text-center drop-shadow-lg";
+                        title.textContent = "GO!";
+                        sound.playPop(2.0); // ピーン！
+                        desc.innerHTML = "";
+                        
+                        setTimeout(() => {
+                            overlay.classList.add('hidden');
+                            this.spawnPair();
+                        }, 800);
+                    }
+                }, 1000);
             }
 
             showOverlay(titleText, descText, showBtn) {
@@ -784,7 +823,7 @@
             }
 
             update(now) {
-                if(this.gameState === STATE_WAITING) return;
+                if(this.gameState === STATE_WAITING || this.gameState === STATE_COUNTDOWN) return;
 
                 if (now - this.lastEyeMove > 1800) {
                     this.eyeLookDir.x = (Math.random() - 0.5) * 5;
@@ -987,7 +1026,7 @@
             game.initMultiplayer(); // Start matching automatically
 
             document.addEventListener('keydown', (e) => {
-                if (game.gameState === STATE_GAMEOVER || game.gameState === STATE_WAITING) return;
+                if (game.gameState === STATE_GAMEOVER || game.gameState === STATE_WAITING || game.gameState === STATE_COUNTDOWN) return;
                 switch(e.code) {
                     case 'ArrowLeft': game.moveLeft(); break;
                     case 'ArrowRight': game.moveRight(); break;
