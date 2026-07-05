@@ -3,45 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Puyo Fall - ぷよぷよ風パズル</title>
+    <title>Puyo Fall - Online Multiplayer</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts (Inter & Orbitron for game feel) -->
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
-    <!-- FontAwesome for Icons -->
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {
             font-family: 'Inter', sans-serif;
             background: radial-gradient(circle at center, #1e1b4b 0%, #030712 100%);
             touch-action: manipulation;
+            overscroll-behavior: none;
         }
         .retro-font {
             font-family: 'Orbitron', sans-serif;
         }
-        /* Hide scrollbars */
-        ::-webkit-scrollbar {
-            display: none;
-        }
-        /* Pulse animation for neon */
+        ::-webkit-scrollbar { display: none; }
+        
+        /* エフェクトアニメーション */
         @keyframes neon-pulse {
             0%, 100% { opacity: 0.3; text-shadow: 0 0 10px rgba(168, 85, 247, 0.5); }
             50% { opacity: 0.8; text-shadow: 0 0 20px rgba(168, 85, 247, 0.9); }
         }
-        .neon-glow {
-            animation: neon-pulse 2s infinite;
+        .neon-glow { animation: neon-pulse 2s infinite; }
+        
+        @keyframes super-burst {
+            0% { transform: scale(0) rotate(-20deg); opacity: 0; filter: brightness(2); }
+            40% { transform: scale(1.4) rotate(10deg); opacity: 1; filter: brightness(1.5); }
+            70% { transform: scale(0.9) rotate(-5deg); filter: brightness(1); }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        .animate-burst {
+            animation: super-burst 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        
+        .text-rainbow {
+            background: linear-gradient(to right, #ff3366, #ff9933, #ffff33, #33ff33, #33ffff, #9933ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: rainbow-shift 3s linear infinite;
+            background-size: 200% auto;
+        }
+        @keyframes rainbow-shift {
+            to { background-position: 200% center; }
         }
     </style>
 </head>
 <body class="text-white min-h-screen flex flex-col items-center justify-between p-2 overflow-hidden select-none">
 
-    <!-- Header/Title -->
-    <header class="w-full max-w-md text-center py-2 flex justify-between items-center px-4">
+    <!-- Header -->
+    <header class="w-full max-w-2xl text-center py-2 flex justify-between items-center px-4">
         <div>
             <h1 class="text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 retro-font">
-                PUYO FALL
+                PUYO FALL ONLINE
             </h1>
-            <p class="text-xs text-purple-300 font-semibold tracking-widest uppercase">Combo Chain Puzzle</p>
+            <p id="connection-status" class="text-xs text-yellow-300 font-semibold tracking-widest uppercase animate-pulse">Connecting to server...</p>
         </div>
         <button id="sound-toggle" class="bg-gray-800 hover:bg-gray-700 p-2.5 rounded-xl border border-purple-500/30 transition-all text-purple-400">
             <i class="fas fa-volume-up" id="sound-icon"></i>
@@ -49,117 +68,103 @@
     </header>
 
     <!-- Main Content Area -->
-    <main class="flex-1 flex flex-col md:flex-row items-center justify-center gap-4 w-full max-w-4xl max-h-[85vh]">
+    <main class="flex-1 flex flex-col md:flex-row items-center justify-center gap-4 w-full max-w-5xl max-h-[85vh]">
         
-        <!-- Left Panel: Stats and Next Puyo (Desktop layout helper) -->
-        <div class="flex md:flex-col justify-between items-center w-full max-w-md md:w-36 gap-3 px-2">
-            <!-- Score & Level -->
-            <div class="bg-gray-950/80 border border-purple-500/20 rounded-2xl p-3 flex-1 md:w-full flex md:flex-col justify-around md:justify-start gap-1 backdrop-blur-sm shadow-xl shadow-purple-950/20">
-                <div>
-                    <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Score</div>
-                    <div id="score" class="text-xl font-bold text-yellow-400 retro-font">0</div>
-                </div>
-                <div class="border-l md:border-l-0 md:border-t border-gray-800 my-1"></div>
-                <div>
-                    <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Chain</div>
-                    <div id="chain-count" class="text-xl font-bold text-pink-400 retro-font">0 Max</div>
-                </div>
+        <!-- Left Panel: Next Puyo & Stats -->
+        <div class="flex md:flex-col justify-between items-center w-full max-w-md md:w-32 gap-2 px-2 hidden md:flex">
+            <div class="bg-gray-950/80 border border-purple-500/20 rounded-2xl p-2 w-full flex flex-col items-center justify-center h-28 backdrop-blur-sm shadow-xl">
+                <div class="text-[10px] text-purple-300 font-bold uppercase tracking-wider mb-1">Next</div>
+                <canvas id="next-canvas" width="60" height="100" class="w-10 h-16"></canvas>
             </div>
-
-            <!-- Next Puyo Panel -->
-            <div class="bg-gray-950/80 border border-purple-500/20 rounded-2xl p-3 flex flex-col items-center justify-center w-24 h-24 md:w-full md:h-32 backdrop-blur-sm shadow-xl">
-                <div class="text-[10px] text-purple-300 font-bold uppercase tracking-wider mb-2">Next</div>
-                <canvas id="next-canvas" width="60" height="100" class="w-12 h-20"></canvas>
+            <div class="bg-gray-950/80 border border-purple-500/20 rounded-2xl p-2 w-full flex flex-col gap-1 backdrop-blur-sm shadow-xl text-center">
+                <div class="text-[10px] text-gray-400 font-bold uppercase">Score</div>
+                <div id="score" class="text-lg font-bold text-yellow-400 retro-font">0</div>
+                <div class="border-t border-gray-800 my-0.5"></div>
+                <div class="text-[10px] text-gray-400 font-bold uppercase">Chain</div>
+                <div id="chain-count" class="text-lg font-bold text-pink-400 retro-font">0</div>
             </div>
         </div>
 
-        <!-- Center Panel: The Game Board Canvas -->
-        <div class="relative flex-1 flex flex-row justify-center items-center w-full max-h-[50vh] md:max-h-none gap-2 md:gap-8">
+        <!-- Center: Game Boards (Player & Opponent side-by-side) -->
+        <div class="flex flex-row justify-center items-end gap-2 md:gap-6 w-full max-h-[55vh] md:max-h-none">
+            
             <!-- Player Board -->
-            <div class="relative bg-gray-950/90 border-4 border-purple-500/40 rounded-3xl overflow-hidden shadow-2xl shadow-purple-500/10 p-1 flex justify-center items-center">
-                <!-- Grid background under canvas for retro futuristic look -->
-                <div class="absolute inset-0 bg-[radial-gradient(#1e1b4b_1px,transparent_1px)] [background-size:16px_16px] opacity-20 pointer-events-none"></div>
-                
-                <canvas id="game-canvas" class="block max-w-full rounded-2xl" style="aspect-ratio: 6 / 12; height: min(55vh, 440px);"></canvas>
-
-                <!-- On-Screen Big Chain and Message Overlays -->
-                <div id="overlay-message" class="absolute inset-0 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md transition-all duration-300 z-20">
-                    <h2 id="overlay-title" class="text-3xl font-black text-blue-400 retro-font tracking-wider mb-2 text-center px-2">CONNECTING...</h2>
-                    <p id="overlay-desc" class="text-sm text-gray-300 mb-6 text-center px-6">オンライン対戦サーバーに接続中</p>
-                    <button id="restart-btn" class="hidden bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-extrabold px-8 py-3 rounded-full shadow-lg shadow-purple-500/30 transform hover:scale-105 active:scale-95 transition-all text-sm tracking-widest uppercase">
-                        REMATCH
-                    </button>
+            <div class="relative flex flex-col items-center">
+                <div class="mb-1 flex justify-between w-full px-2">
+                    <span class="text-xs font-bold text-blue-300 retro-font">YOU</span>
+                    <span id="mobile-score" class="text-xs font-bold text-yellow-400 retro-font md:hidden">0</span>
                 </div>
-
-                <!-- Combo floating text -->
-                <div id="chain-banner" class="absolute pointer-events-none text-center transform scale-0 opacity-0 transition-all duration-300 flex flex-col items-center z-10">
-                    <span id="chain-banner-num" class="text-5xl font-black text-yellow-300 retro-font stroke-black drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]">1 CHAIN</span>
-                    <span id="chain-banner-sub" class="text-lg font-bold text-pink-400 uppercase tracking-widest drop-shadow">Awesome!</span>
+                <div class="relative bg-gray-950/90 border-4 border-blue-500/40 rounded-xl overflow-hidden shadow-2xl shadow-blue-500/20 p-1">
+                    <div class="absolute inset-0 bg-[radial-gradient(#1e1b4b_1px,transparent_1px)] [background-size:16px_16px] opacity-20 pointer-events-none"></div>
+                    <canvas id="game-canvas" class="block rounded-lg" style="aspect-ratio: 6 / 12; height: min(50vh, 420px);"></canvas>
+                    
+                    <!-- Chain Banner -->
+                    <div id="chain-banner" class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center transform scale-0 opacity-0 transition-all duration-300 z-10">
+                        <span id="chain-banner-num" class="text-4xl font-black text-yellow-300 retro-font stroke-black drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]">1 CHAIN</span>
+                        <span id="chain-banner-sub" class="text-sm font-bold text-pink-400 uppercase tracking-widest drop-shadow">Nice!</span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Opponent Board (Multiplayer) -->
-            <div id="opponent-container" class="relative bg-gray-950/90 border-4 border-red-900/40 rounded-3xl overflow-hidden shadow-2xl shadow-red-500/10 p-1 flex justify-center items-center opacity-90 transform md:scale-90 scale-75 origin-left transition-all hidden">
-                <!-- Grid background -->
-                <div class="absolute inset-0 bg-[radial-gradient(#450a0a_1px,transparent_1px)] [background-size:16px_16px] opacity-20 pointer-events-none"></div>
-                <div class="absolute -top-3 left-0 right-0 flex justify-center z-10">
-                    <span class="text-[10px] bg-red-900/80 text-red-200 border border-red-500/50 font-bold tracking-widest uppercase retro-font px-3 py-1 rounded-full shadow-lg shadow-red-900/50 backdrop-blur-sm">Opponent</span>
+            <!-- Opponent Board (Slightly smaller, opacity lowered slightly) -->
+            <div id="opponent-container" class="relative flex flex-col items-center opacity-90 transition-opacity duration-500">
+                <div class="mb-1 flex justify-between w-full px-2">
+                    <span class="text-xs font-bold text-red-300 retro-font">OPPONENT</span>
+                    <span id="opponent-score" class="text-xs font-bold text-gray-400 retro-font">0</span>
                 </div>
-                <canvas id="opponent-canvas" class="block max-w-full rounded-2xl" style="aspect-ratio: 6 / 12; height: min(55vh, 440px);"></canvas>
-                <!-- Opponent Combo Banner -->
-                <div id="opp-chain-banner" class="absolute pointer-events-none text-center transform scale-0 opacity-0 transition-all duration-300 flex flex-col items-center z-10">
-                    <span id="opp-chain-banner-num" class="text-3xl font-black text-red-400 retro-font stroke-black drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]">1 CHAIN</span>
+                <div class="relative bg-gray-950/90 border-4 border-red-500/30 rounded-xl overflow-hidden shadow-lg p-1">
+                    <div class="absolute inset-0 bg-[radial-gradient(#3f1a1a_1px,transparent_1px)] [background-size:16px_16px] opacity-20 pointer-events-none"></div>
+                    <canvas id="opponent-canvas" class="block rounded-lg" style="aspect-ratio: 6 / 12; height: min(40vh, 340px);"></canvas>
+                    
+                    <!-- Opponent Status Overlay -->
+                    <div id="opponent-status" class="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm z-10">
+                        <span class="text-xs font-bold text-gray-300 uppercase tracking-widest text-center px-2">Waiting<br>for player...</span>
+                    </div>
                 </div>
             </div>
+
         </div>
 
-        <!-- Right Panel: On-Screen Touch Controls (Hidden on large screens without touch, shown adaptively) -->
-        <div class="w-full max-w-md flex flex-col gap-2 px-2 md:w-48 md:max-h-[80vh] md:justify-center">
-            <!-- Mobile Action Buttons Grid -->
-            <div class="grid grid-cols-5 gap-2 w-full">
-                <button id="ctrl-left" class="bg-gray-800/80 active:bg-purple-600/90 hover:bg-gray-700/80 border border-gray-700 p-4 rounded-2xl flex flex-col items-center justify-center transition-all group active:scale-95">
-                    <i class="fas fa-arrow-left text-lg text-gray-300 group-active:text-white"></i>
-                    <span class="text-[9px] text-gray-500 mt-1 uppercase font-bold">Left</span>
+        <!-- Right Panel: Controls -->
+        <div class="w-full max-w-md flex flex-col gap-2 px-2 md:w-48 md:justify-center mt-2 md:mt-0">
+            <div class="grid grid-cols-5 gap-1.5 w-full">
+                <button id="ctrl-left" class="bg-gray-800/80 active:bg-blue-600/90 hover:bg-gray-700/80 border border-gray-700 py-3 rounded-xl flex flex-col items-center justify-center group">
+                    <i class="fas fa-arrow-left text-base text-gray-300 group-active:text-white"></i>
                 </button>
-                <button id="ctrl-rot-l" class="bg-purple-900/40 active:bg-purple-600/90 hover:bg-purple-800/50 border border-purple-500/30 p-4 rounded-2xl flex flex-col items-center justify-center transition-all group active:scale-95 col-span-1">
-                    <i class="fas fa-undo text-lg text-purple-400 group-active:text-white"></i>
-                    <span class="text-[9px] text-purple-300/70 mt-1 uppercase font-bold">Rot L</span>
+                <button id="ctrl-rot-l" class="bg-purple-900/40 active:bg-purple-600/90 hover:bg-purple-800/50 border border-purple-500/30 py-3 rounded-xl flex flex-col items-center justify-center group col-span-1">
+                    <i class="fas fa-undo text-base text-purple-400 group-active:text-white"></i>
                 </button>
-                <button id="ctrl-down" class="bg-gray-800/80 active:bg-purple-600/90 hover:bg-gray-700/80 border border-gray-700 p-4 rounded-2xl flex flex-col items-center justify-center transition-all group active:scale-95">
-                    <i class="fas fa-arrow-down text-lg text-gray-300 group-active:text-white"></i>
-                    <span class="text-[9px] text-gray-500 mt-1 uppercase font-bold">Drop</span>
+                <button id="ctrl-down" class="bg-gray-800/80 active:bg-blue-600/90 hover:bg-gray-700/80 border border-gray-700 py-3 rounded-xl flex flex-col items-center justify-center group">
+                    <i class="fas fa-arrow-down text-base text-gray-300 group-active:text-white"></i>
                 </button>
-                <button id="ctrl-rot-r" class="bg-purple-900/40 active:bg-purple-600/90 hover:bg-purple-800/50 border border-purple-500/30 p-4 rounded-2xl flex flex-col items-center justify-center transition-all group active:scale-95 col-span-1">
-                    <i class="fas fa-redo text-lg text-purple-400 group-active:text-white"></i>
-                    <span class="text-[9px] text-purple-300/70 mt-1 uppercase font-bold">Rot R</span>
+                <button id="ctrl-rot-r" class="bg-purple-900/40 active:bg-purple-600/90 hover:bg-purple-800/50 border border-purple-500/30 py-3 rounded-xl flex flex-col items-center justify-center group col-span-1">
+                    <i class="fas fa-redo text-base text-purple-400 group-active:text-white"></i>
                 </button>
-                <button id="ctrl-right" class="bg-gray-800/80 active:bg-purple-600/90 hover:bg-gray-700/80 border border-gray-700 p-4 rounded-2xl flex flex-col items-center justify-center transition-all group active:scale-95">
-                    <i class="fas fa-arrow-right text-lg text-gray-300 group-active:text-white"></i>
-                    <span class="text-[9px] text-gray-500 mt-1 uppercase font-bold">Right</span>
+                <button id="ctrl-right" class="bg-gray-800/80 active:bg-blue-600/90 hover:bg-gray-700/80 border border-gray-700 py-3 rounded-xl flex flex-col items-center justify-center group">
+                    <i class="fas fa-arrow-right text-base text-gray-300 group-active:text-white"></i>
                 </button>
             </div>
-            <!-- Quick Hard Drop Button -->
-            <button id="ctrl-hard" class="w-full bg-gradient-to-r from-indigo-900/40 to-purple-900/40 active:from-indigo-600 active:to-purple-600 border border-indigo-500/30 py-2.5 rounded-xl font-bold text-xs tracking-wider text-indigo-200 transition-all active:scale-[0.98] uppercase">
-                <i class="fas fa-angles-down mr-1"></i> Hard Drop (Instant)
+            <button id="ctrl-hard" class="w-full bg-gradient-to-r from-indigo-900/60 to-blue-900/60 active:from-indigo-600 active:to-blue-600 border border-indigo-500/30 py-2 rounded-xl font-bold text-xs tracking-wider text-indigo-200 uppercase mt-1">
+                Hard Drop
             </button>
         </div>
     </main>
 
-    <!-- Footer: Instructions -->
-    <footer class="text-center py-2 text-[11px] text-gray-500 w-full max-w-md flex flex-wrap justify-center gap-x-4 gap-y-1">
-        <span><kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-300">←</kbd> <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-300">→</kbd> 左右移動</span>
-        <span><kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-300">↑</kbd> または <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-300">Z</kbd> / <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-300">X</kbd> 回転</span>
-        <span><kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-300">↓</kbd> 高速落下</span>
-        <span><kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-300">Space</kbd> 即時落下</span>
-    </footer>
+    <!-- Overlay UI for Messages/Countdown -->
+    <div id="overlay-message" class="fixed inset-0 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md z-50 transition-all duration-300 hidden">
+        <h2 id="overlay-title" class="text-4xl font-black text-white retro-font tracking-wider mb-4 drop-shadow-lg text-center">PLEASE WAIT</h2>
+        <p id="overlay-desc" class="text-sm text-gray-300 mb-8 text-center px-6 leading-relaxed">...</p>
+        <button id="restart-btn" class="hidden bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-extrabold px-8 py-3 rounded-full shadow-lg shadow-purple-500/30 transform hover:scale-105 active:scale-95 transition-all text-sm tracking-widest uppercase">
+            PLAY AGAIN
+        </button>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, updateDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase Configuration (User Specific)
-        const appId = 'puyo-fall-multiplayer';
+        // --- Firebase Configuration (Provided by user) ---
         const firebaseConfig = {
             apiKey: "AIzaSyBkMtffenQmKomClPWZa9fD-WKYrhQpoiw",
             authDomain: "puyopuyo-7ea9c.firebaseapp.com",
@@ -169,70 +174,53 @@
             appId: "1:627527369771:web:8803982027fc39d34d166e",
             measurementId: "G-93ZTVJ7V8D"
         };
+        const appNamespace = 'puyo-fall-multiplayer';
+        
         let db, auth, userId;
         let matchRef = null;
-        let isPlayer1 = false;
-        let unsubscribeMatch = null;
+        let isPlayer1 = true;
 
-        /* --- SOUND SYNTHESIS (Web Audio API) --- */
+        /* --- SOUND SYNTHESIS (Enhanced with Synth Chords) --- */
         class SoundManager {
             constructor() {
                 this.ctx = null;
                 this.muted = false;
             }
-
             init() {
-                if (!this.ctx) {
-                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                }
+                if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
             }
-
             playPop(pitchModifier = 1) {
                 if (this.muted) return;
                 this.init();
                 const now = this.ctx.currentTime;
-                
-                // Cute organic bubble/pop sound using primary sine and pitch slide
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
-                
                 osc.type = 'sine';
-                // Slide pitch up quickly for bubble pop
                 osc.frequency.setValueAtTime(220 * pitchModifier, now);
                 osc.frequency.exponentialRampToValueAtTime(880 * pitchModifier, now + 0.12);
-                
                 gain.gain.setValueAtTime(0.15, now);
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-                
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
-                
                 osc.start(now);
                 osc.stop(now + 0.16);
             }
-
             playRotate() {
                 if (this.muted) return;
                 this.init();
                 const now = this.ctx.currentTime;
-                
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
-                
                 osc.type = 'triangle';
                 osc.frequency.setValueAtTime(350, now);
                 osc.frequency.linearRampToValueAtTime(450, now + 0.08);
-                
                 gain.gain.setValueAtTime(0.08, now);
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.09);
-                
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
-                
                 osc.start(now);
                 osc.stop(now + 0.1);
             }
-
             playMove() {
                 if (this.muted) return;
                 this.init();
@@ -248,47 +236,57 @@
                 osc.start(now);
                 osc.stop(now + 0.06);
             }
-
             playChain(count) {
                 if (this.muted) return;
                 this.init();
                 const now = this.ctx.currentTime;
                 
-                // A cute ascending pentatonic chime corresponding to chains
-                const notes = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
-                const baseFreq = notes[Math.min(count - 1, notes.length - 1)];
+                // より豪華なシンセ和音（アルペジオ風）
+                const baseFreqs = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
+                const rootIdx = Math.min(count - 1, baseFreqs.length - 1);
+                const rootFreq = baseFreqs[rootIdx];
+                const thirdFreq = rootFreq * 1.25; // 長3度
+                const fifthFreq = rootFreq * 1.5;  // 完全5度
                 
-                // Synth chime
-                const osc = this.ctx.createOscillator();
-                const oscSub = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(baseFreq, now);
-                osc.frequency.exponentialRampToValueAtTime(baseFreq * 2, now + 0.25);
-                
-                oscSub.type = 'sine';
-                oscSub.frequency.setValueAtTime(baseFreq * 1.5, now);
-                
-                gain.gain.setValueAtTime(0.2, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
-                
-                osc.connect(gain);
-                oscSub.connect(gain);
-                gain.connect(this.ctx.destination);
-                
-                osc.start(now);
-                oscSub.start(now);
-                osc.stop(now + 0.4);
-                oscSub.stop(now + 0.4);
-            }
+                const playSynth = (freq, type, timeStart, timeEnd, vol) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, timeStart);
+                    gain.gain.setValueAtTime(vol, timeStart);
+                    gain.gain.exponentialRampToValueAtTime(0.01, timeEnd);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(timeStart);
+                    osc.stop(timeEnd);
+                };
 
+                // キラキラ感のある和音を少しずらして鳴らす
+                playSynth(rootFreq, 'square', now, now + 0.5, 0.12);
+                playSynth(thirdFreq, 'triangle', now + 0.05, now + 0.55, 0.12);
+                playSynth(fifthFreq, 'sine', now + 0.1, now + 0.6, 0.12);
+
+                // 大連鎖（3連鎖以上）で低音の響きと迫力を追加
+                if (count >= 3) {
+                    playSynth(rootFreq / 2, 'sawtooth', now, now + 0.6, 0.15);
+                    const subOsc = this.ctx.createOscillator();
+                    const subGain = this.ctx.createGain();
+                    subOsc.type = 'sine';
+                    subOsc.frequency.setValueAtTime(150, now);
+                    subOsc.frequency.exponentialRampToValueAtTime(20, now + 0.4);
+                    subGain.gain.setValueAtTime(0.4, now);
+                    subGain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    subOsc.connect(subGain);
+                    subGain.connect(this.ctx.destination);
+                    subOsc.start(now);
+                    subOsc.stop(now + 0.4);
+                }
+            }
             playGameOver() {
                 if (this.muted) return;
                 this.init();
                 const now = this.ctx.currentTime;
                 const notes = [300, 240, 180, 120];
-                
                 notes.forEach((freq, idx) => {
                     const osc = this.ctx.createOscillator();
                     const gain = this.ctx.createGain();
@@ -303,10 +301,8 @@
                 });
             }
         }
-
         const sound = new SoundManager();
 
-        // Sound Toggle Handler
         document.getElementById('sound-toggle').addEventListener('click', () => {
             sound.muted = !sound.muted;
             const icon = document.getElementById('sound-icon');
@@ -318,365 +314,297 @@
             }
         });
 
-        /* --- MULTIPLAYER GAME LOGIC ENGINE --- */
+        // --- GAME CONSTANTS ---
         const COLS = 6;
         const ROWS = 12;
-        
-        // Puyo Colors definition (Added Garbage block)
         const COLORS = {
-            1: { name: 'red', fill: '#ef4444', shadow: '#b91c1c', eye: '#ffffff' },
-            2: { name: 'blue', fill: '#3b82f6', shadow: '#1d4ed8', eye: '#ffffff' },
-            3: { name: 'green', fill: '#10b981', shadow: '#047857', eye: '#ffffff' },
-            4: { name: 'yellow', fill: '#f59e0b', shadow: '#b45309', eye: '#ffffff' },
-            5: { name: 'purple', fill: '#8b5cf6', shadow: '#6d28d9', eye: '#ffffff' },
-            6: { name: 'garbage', fill: '#9ca3af', shadow: '#4b5563', eye: '#f3f4f6' } // おじゃまぷよ
+            1: { fill: '#ef4444', shadow: '#b91c1c' }, // Red
+            2: { fill: '#3b82f6', shadow: '#1d4ed8' }, // Blue
+            3: { fill: '#10b981', shadow: '#047857' }, // Green
+            4: { fill: '#f59e0b', shadow: '#b45309' }, // Yellow
+            5: { fill: '#8b5cf6', shadow: '#6d28d9' }, // Purple
+            6: { fill: '#9ca3af', shadow: '#4b5563' }  // Garbage (Gray)
         };
 
-        const STATE_WAITING = 'waiting'; // Waiting for opponent
-        const STATE_COUNTDOWN = 'countdown'; // Ready countdown
+        const STATE_WAITING = 'waiting';
+        const STATE_COUNTDOWN = 'countdown';
         const STATE_CONTROL = 'control';
         const STATE_FALLING = 'falling';
-        const STATE_MATCHING = 'matching';
         const STATE_POPPING = 'popping';
         const STATE_GAMEOVER = 'gameover';
 
-        class MultiplayerPuyoGame {
+        class MultiplayerGame {
             constructor() {
                 this.canvas = document.getElementById('game-canvas');
                 this.ctx = this.canvas.getContext('2d');
                 this.nextCanvas = document.getElementById('next-canvas');
                 this.nextCtx = this.nextCanvas.getContext('2d');
+                
                 this.oppCanvas = document.getElementById('opponent-canvas');
                 this.oppCtx = this.oppCanvas.getContext('2d');
                 
-                this.grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
-                this.oppGrid = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
+                this.grid = this.createEmptyGrid();
+                this.oppGrid = this.createEmptyGrid();
                 
-                this.activePair = { p1: { x: 2, y: -1, color: 1 }, p2: { x: 2, y: -2, color: 2 }, rot: 0 };
-                this.nextPair = { p1Color: 1, p2Color: 2 };
+                this.activePair = { p1: {x:2, y:0, c:1}, p2: {x:2, y:-1, c:2}, rot: 0 };
+                this.nextPair = { c1: 1, c2: 2 };
                 
                 this.score = 0;
-                this.maxChain = 0;
-                this.currentChain = 0;
+                this.chain = 0;
                 this.gameState = STATE_WAITING;
-                this.lastDropTime = 0;
+                
                 this.dropInterval = 1000;
+                this.lastDropTime = 0;
                 this.isFastDropping = false;
                 
-                // Multiplayer variables
-                this.totalGarbageSent = 0;
-                this.localGarbageReceived = 0; // The amount of opponent's garbage we have already dropped
-                this.pendingGarbage = 0; // Pending garbage to drop
-
+                // Visual effects
                 this.particles = [];
-                this.popAnimationTimer = 0;
                 this.popTargets = [];
+                this.popTimer = 0;
+                this.shakeAmount = 0;
+                this.flashAlpha = 0;
                 this.eyeLookDir = { x: 0, y: 0 };
                 this.lastEyeMove = 0;
-
+                
                 this.resizeCanvas();
                 window.addEventListener('resize', () => this.resizeCanvas());
             }
 
-            async initMultiplayer() {
-                if (!firebaseConfig) {
-                    this.showOverlay("ERROR", "オフラインモード", "Firebase設定が見つかりません。");
-                    return;
-                }
+            createEmptyGrid() {
+                return Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
+            }
 
-                // 1. Authenticate
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
+            resizeCanvas() {
+                const height = Math.min(window.innerHeight * 0.5, 420);
+                this.canvas.height = height;
+                this.canvas.width = height * (COLS / ROWS);
+                
+                const oppHeight = Math.min(window.innerHeight * 0.4, 340);
+                this.oppCanvas.height = oppHeight;
+                this.oppCanvas.width = oppHeight * (COLS / ROWS);
+            }
+
+            async initMultiplayer() {
+                const statusTxt = document.getElementById('connection-status');
                 
                 try {
-                    // カスタムトークンを廃止し、ご自身のプロジェクトの匿名認証を使用します
+                    const app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    
                     await signInAnonymously(auth);
-                    // 同一ブラウザの別タブでテスト（1人2役）した場合でもマッチングできるように、タブ固有のIDを付加
-                    userId = auth.currentUser.uid + '_' + Math.random().toString(36).substr(2, 9);
+                    // Generate unique ID to allow testing on the same browser in different tabs
+                    userId = auth.currentUser.uid + '_' + Math.floor(Math.random()*1000); 
+                    
+                    statusTxt.textContent = "MATCHMAKING...";
+                    statusTxt.className = "text-xs text-blue-300 font-bold uppercase animate-pulse";
+                    
+                    this.joinLobby();
                 } catch (e) {
-                    this.showOverlay("AUTH FAILED", "認証エラー", "ログインに失敗しました。<br>Firebaseコンソールで「Authentication > 匿名」が有効になっているか確認してください。");
                     console.error(e);
-                    return;
+                    this.showOverlay("CONNECTION ERROR", "Firebaseへの接続に失敗しました。<br>設定を確認してください。", true);
                 }
+            }
 
-                // 2. Matchmaking Logic
-                const lobbyRef = doc(db, 'artifacts', appId, 'public', 'data', 'matches', 'LOBBY');
+            async joinLobby() {
+                const lobbyRef = doc(db, appNamespace, 'LOBBY');
                 
                 try {
                     const lobbySnap = await getDoc(lobbyRef);
-                    let joinedExisting = false;
-
-                    if (lobbySnap.exists() && lobbySnap.data().waitingMatchId) {
-                        const mId = lobbySnap.data().waitingMatchId;
-                        matchRef = doc(db, 'artifacts', appId, 'public', 'data', 'matches', mId);
-                        const matchSnap = await getDoc(matchRef);
+                    if (lobbySnap.exists() && lobbySnap.data().waitingUser && lobbySnap.data().waitingUser !== userId) {
+                        // 誰かが待っている -> 参加して対戦開始
+                        isPlayer1 = false;
+                        const p1Id = lobbySnap.data().waitingUser;
+                        matchRef = doc(db, appNamespace, `MATCH_${p1Id}`);
                         
-                        // Join as Player 2 if match is still waiting
-                        if (matchSnap.exists() && matchSnap.data().status === 'waiting' && matchSnap.data().p1 !== userId) {
-                            isPlayer1 = false;
-                            joinedExisting = true;
-                            await updateDoc(matchRef, { p2: userId, status: 'playing' });
-                            await setDoc(lobbyRef, { waitingMatchId: null });
-                        }
-                    }
-
-                    if (!joinedExisting) {
-                        // Create new Match as Player 1
-                        isPlayer1 = true;
-                        const newMatchId = 'match_' + Date.now() + '_' + Math.floor(Math.random()*1000);
-                        matchRef = doc(db, 'artifacts', appId, 'public', 'data', 'matches', newMatchId);
-                        
-                        const emptyGridStr = JSON.stringify(Array(ROWS).fill(null).map(() => Array(COLS).fill(0)));
                         await setDoc(matchRef, {
-                            status: 'waiting',
-                            p1: userId,
-                            p2: null,
-                            p1Grid: emptyGridStr,
-                            p2Grid: emptyGridStr,
-                            p1GarbageSent: 0,
-                            p2GarbageSent: 0,
-                            p1Chain: 0,
-                            p2Chain: 0
+                            p1Id: p1Id, p2Id: userId,
+                            p1Grid: JSON.stringify(this.createEmptyGrid()), p2Grid: JSON.stringify(this.createEmptyGrid()),
+                            p1Score: 0, p2Score: 0, status: 'playing'
                         });
-                        await setDoc(lobbyRef, { waitingMatchId: newMatchId });
-                        this.showOverlay("WAITING...", "対戦相手を待っています", "");
+                        
+                        await setDoc(lobbyRef, { waitingUser: null }); // ロビーを空にする
+                        this.startCountdown();
+                        this.listenToMatch();
+                    } else {
+                        // 誰もいない -> 自分が待機
+                        isPlayer1 = true;
+                        matchRef = doc(db, appNamespace, `MATCH_${userId}`);
+                        
+                        await setDoc(lobbyRef, { waitingUser: userId });
+                        await setDoc(matchRef, {
+                            p1Id: userId, p2Id: null,
+                            p1Grid: JSON.stringify(this.grid), p2Grid: JSON.stringify(this.oppGrid),
+                            p1Score: 0, p2Score: 0, status: 'waiting'
+                        });
+                        
+                        this.showOverlay("WAITING...", "対戦相手を探しています<br>URLを友達に送って参加してもらおう！", false);
+                        this.listenToMatch();
+                    }
+                } catch (e) {
+                    console.error("Lobby error:", e);
+                    this.showOverlay("ERROR", "ロビーへのアクセスに失敗しました。<br>Firestoreのルール設定を確認してください。", true);
+                }
+            }
+
+            listenToMatch() {
+                onSnapshot(matchRef, (docSnap) => {
+                    if (!docSnap.exists()) return;
+                    const data = docSnap.data();
+                    
+                    // 相手が参加したらカウントダウン開始
+                    if (isPlayer1 && data.p2Id && this.gameState === STATE_WAITING) {
+                        this.startCountdown();
                     }
 
-                    // 3. Listen to match state
-                    if (unsubscribeMatch) unsubscribeMatch();
-                    unsubscribeMatch = onSnapshot(matchRef, (docSnap) => {
-                        if (!docSnap.exists()) return;
-                        const data = docSnap.data();
-                        this.handleMatchUpdate(data);
-                    }, (err) => console.error("Listen Error", err));
-
-                } catch (e) {
-                    console.error(e);
-                    this.showOverlay("ERROR", "接続エラー", "マッチングに失敗しました。");
-                }
-            }
-
-            handleMatchUpdate(data) {
-                // Read Opponent state
-                if (data.status === 'playing' && this.gameState === STATE_WAITING) {
-                    this.startGame();
-                }
-
-                if (this.gameState !== STATE_WAITING && this.gameState !== STATE_GAMEOVER) {
-                    try {
-                        this.oppGrid = JSON.parse(isPlayer1 ? data.p2Grid : data.p1Grid);
-                        const oppTotalSent = isPlayer1 ? data.p2GarbageSent : data.p1GarbageSent;
-                        const oppChain = isPlayer1 ? data.p2Chain : data.p1Chain;
+                    // 相手の盤面とスコアを同期
+                    if (this.gameState !== STATE_WAITING && this.gameState !== STATE_COUNTDOWN) {
+                        try {
+                            if (isPlayer1) {
+                                this.oppGrid = JSON.parse(data.p2Grid);
+                                document.getElementById('opponent-score').textContent = data.p2Score;
+                            } else {
+                                this.oppGrid = JSON.parse(data.p1Grid);
+                                document.getElementById('opponent-score').textContent = data.p1Score;
+                            }
+                        } catch(e) {}
                         
-                        // Calculate incoming garbage from opponent
-                        if (oppTotalSent > this.localGarbageReceived + this.pendingGarbage) {
-                            this.pendingGarbage = oppTotalSent - this.localGarbageReceived;
-                        }
-
-                        if (oppChain > 0) this.showOpponentChainBanner(oppChain);
-                    } catch(e) {}
-                }
-
-                if (data.status === 'p1_won') {
-                    if (isPlayer1) this.endGame(true);
-                    else if(this.gameState !== STATE_GAMEOVER) this.endGame(false);
-                } else if (data.status === 'p2_won') {
-                    if (!isPlayer1) this.endGame(true);
-                    else if(this.gameState !== STATE_GAMEOVER) this.endGame(false);
-                }
+                        if (data.status === 'gameover_p1' && !isPlayer1) this.endGame(true);
+                        if (data.status === 'gameover_p2' && isPlayer1) this.endGame(true);
+                    }
+                });
             }
 
-            syncGameState() {
-                if (!matchRef || !auth.currentUser) return;
-                const update = {};
-                const gridStr = JSON.stringify(this.grid);
-                
+            syncState() {
+                if (!matchRef || this.gameState === STATE_GAMEOVER) return;
+                const updateData = {};
                 if (isPlayer1) {
-                    update.p1Grid = gridStr;
-                    update.p1GarbageSent = this.totalGarbageSent;
-                    update.p1Chain = this.currentChain;
-                    if (this.gameState === STATE_GAMEOVER) update.status = 'p2_won';
+                    updateData.p1Grid = JSON.stringify(this.grid);
+                    updateData.p1Score = this.score;
                 } else {
-                    update.p2Grid = gridStr;
-                    update.p2GarbageSent = this.totalGarbageSent;
-                    update.p2Chain = this.currentChain;
-                    if (this.gameState === STATE_GAMEOVER) update.status = 'p1_won';
+                    updateData.p2Grid = JSON.stringify(this.grid);
+                    updateData.p2Score = this.score;
                 }
-                updateDoc(matchRef, update).catch(e => console.error(e));
-            }
-
-            startGame() {
-                document.getElementById('opponent-container').classList.remove('hidden');
-                
-                this.grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
-                this.score = 0;
-                this.totalGarbageSent = 0;
-                this.localGarbageReceived = 0;
-                this.pendingGarbage = 0;
-                this.currentChain = 0;
-                this.updateUI();
-                
-                this.generateNext();
-                
-                // カウントダウンを開始
-                this.gameState = STATE_COUNTDOWN;
-                this.startCountdown();
+                updateDoc(matchRef, updateData).catch(e => console.error(e));
             }
 
             startCountdown() {
+                this.gameState = STATE_COUNTDOWN;
+                document.getElementById('connection-status').textContent = "ONLINE MATCH";
+                document.getElementById('connection-status').className = "text-xs text-green-400 font-bold uppercase";
+                document.getElementById('opponent-status').classList.add('hidden');
+                
                 const overlay = document.getElementById('overlay-message');
                 const title = document.getElementById('overlay-title');
                 const desc = document.getElementById('overlay-desc');
-                const btn = document.getElementById('restart-btn');
+                document.getElementById('restart-btn').classList.add('hidden');
                 
-                btn.classList.add('hidden');
                 overlay.classList.remove('hidden');
-                
-                title.className = "text-5xl font-black text-yellow-400 retro-font tracking-wider mb-2 text-center drop-shadow-lg";
-                desc.innerHTML = "対戦相手が見つかりました！<br>準備してください...";
+                title.className = "text-5xl font-black text-yellow-400 retro-font tracking-wider mb-2 drop-shadow-lg text-center";
+                desc.innerHTML = "対戦相手が見つかりました！";
                 
                 let count = 3;
-                title.textContent = "READY?";
-                
-                const countInterval = setInterval(() => {
+                const interval = setInterval(() => {
                     if (count > 0) {
                         title.textContent = count;
-                        sound.playPop(1.2 + (3 - count) * 0.2); // ピッ
+                        sound.playPop(1.2 + (3 - count) * 0.2);
                         count--;
                     } else {
-                        clearInterval(countInterval);
-                        title.className = "text-6xl font-black text-red-500 retro-font tracking-wider mb-2 text-center drop-shadow-lg";
+                        clearInterval(interval);
+                        title.className = "text-6xl font-black text-red-500 retro-font tracking-wider mb-2 drop-shadow-lg text-center";
                         title.textContent = "GO!";
-                        sound.playPop(2.0); // ピーン！
+                        sound.playPop(2.0);
                         desc.innerHTML = "";
                         
                         setTimeout(() => {
                             overlay.classList.add('hidden');
+                            this.grid = this.createEmptyGrid();
+                            this.score = 0;
+                            this.generateNext();
                             this.spawnPair();
+                            this.syncState();
                         }, 800);
                     }
                 }, 1000);
             }
 
-            showOverlay(titleText, descText, showBtn) {
-                const overlay = document.getElementById('overlay-message');
-                const title = document.getElementById('overlay-title');
-                const desc = document.getElementById('overlay-desc');
-                const btn = document.getElementById('restart-btn');
-                
-                title.textContent = titleText;
-                if(titleText === "YOU WIN!") title.className = "text-4xl font-black text-yellow-400 retro-font tracking-wider mb-2 text-center";
-                else if(titleText === "YOU LOSE") title.className = "text-4xl font-black text-red-500 retro-font tracking-wider mb-2 text-center";
-                
-                desc.innerHTML = descText;
-                overlay.classList.remove('hidden');
-                
-                if (showBtn) btn.classList.remove('hidden');
-                else btn.classList.add('hidden');
-            }
-
-            resizeCanvas() {
-                const parent = this.canvas.parentElement;
-                const height = Math.min(window.innerHeight * 0.55, 480);
-                this.canvas.height = height;
-                this.canvas.width = height * (COLS / ROWS);
-                
-                // Also resize opponent canvas
-                this.oppCanvas.height = height;
-                this.oppCanvas.width = height * (COLS / ROWS);
-            }
-
             generateNext() {
-                const pickColor = () => Math.floor(Math.random() * 5) + 1;
-                this.nextPair.p1Color = pickColor();
-                this.nextPair.p2Color = pickColor();
+                const rand = () => Math.floor(Math.random() * 5) + 1;
+                this.nextPair = { c1: rand(), c2: rand() };
+                this.drawNext();
             }
 
             spawnPair() {
-                // Process pending garbage before spawning next piece
-                if (this.pendingGarbage > 0) {
-                    let dropped = Math.min(this.pendingGarbage, 30); // Max 5 rows at a time
-                    this.pendingGarbage -= dropped;
-                    this.localGarbageReceived += dropped;
-                    
-                    let columns = [0,1,2,3,4,5];
-                    while(dropped > 0) {
-                        columns.sort(() => Math.random() - 0.5); // shuffle
-                        let droppedThisRow = false;
-                        for(let c of columns) {
-                            if (dropped === 0) break;
-                            if (this.grid[0][c] === 0) {
-                                this.grid[0][c] = 6; // Drop garbage at top
-                                dropped--;
-                                droppedThisRow = true;
-                            }
-                        }
-                        if(!droppedThisRow) break; // Board is full at top
-                    }
-                    
-                    this.gameState = STATE_FALLING;
-                    this.resolveGravity();
-                    return; // Wait for gravity to settle before giving control
-                }
-
                 if (this.grid[0][2] !== 0 || this.grid[1][2] !== 0) {
-                    this.gameState = STATE_GAMEOVER;
-                    this.syncGameState();
+                    this.endGame(false);
                     return;
                 }
-
-                this.activePair.p1 = { x: 2, y: 0, color: this.nextPair.p1Color };
-                this.activePair.p2 = { x: 2, y: -1, color: this.nextPair.p2Color };
-                this.activePair.rot = 0;
-
+                this.activePair = {
+                    p1: { x: 2, y: 0, c: this.nextPair.c1 },
+                    p2: { x: 2, y: -1, c: this.nextPair.c2 },
+                    rot: 0
+                };
                 this.generateNext();
-                this.drawNext();
                 this.gameState = STATE_CONTROL;
                 this.lastDropTime = performance.now();
-                this.syncGameState();
+                this.syncState();
             }
 
-            // ... Movement logic is exactly the same
-            moveLeft() { if(this.gameState === STATE_CONTROL && this.canMoveTo(this.activePair.p1.x-1, this.activePair.p1.y, this.activePair.p2.x-1, this.activePair.p2.y)) { this.activePair.p1.x--; this.activePair.p2.x--; sound.playMove(); } }
-            moveRight() { if(this.gameState === STATE_CONTROL && this.canMoveTo(this.activePair.p1.x+1, this.activePair.p1.y, this.activePair.p2.x+1, this.activePair.p2.y)) { this.activePair.p1.x++; this.activePair.p2.x++; sound.playMove(); } }
-            rotate(dir = 1) {
+            canMoveTo(x1, y1, x2, y2) {
+                const check = (x, y) => (y < 0 ? x >= 0 && x < COLS : x >= 0 && x < COLS && y < ROWS && this.grid[y][x] === 0);
+                return check(x1, y1) && check(x2, y2);
+            }
+
+            move(dx) {
+                if (this.gameState !== STATE_CONTROL) return;
+                const { p1, p2 } = this.activePair;
+                if (this.canMoveTo(p1.x + dx, p1.y, p2.x + dx, p2.y)) {
+                    p1.x += dx; p2.x += dx;
+                    sound.playMove();
+                }
+            }
+
+            rotate(dir) {
                 if (this.gameState !== STATE_CONTROL) return;
                 const nextRot = (this.activePair.rot + dir + 4) % 4;
-                const offset = this.getRotationOffset(nextRot);
-                let tX = this.activePair.p1.x + offset.x, tY = this.activePair.p1.y + offset.y;
-                let pX = this.activePair.p1.x, pY = this.activePair.p1.y;
-                if (tX < 0) { pX++; tX++; } else if (tX >= COLS) { pX--; tX--; }
-                if (tY >= ROWS) { pY--; tY--; }
-                if (this.canMoveTo(pX, pY, tX, tY)) {
-                    this.activePair.p1.x = pX; this.activePair.p1.y = pY;
-                    this.activePair.p2.x = tX; this.activePair.p2.y = tY;
-                    this.activePair.rot = nextRot; sound.playRotate();
+                const offsets = [ {x:0, y:-1}, {x:1, y:0}, {x:0, y:1}, {x:-1, y:0} ]; // N, E, S, W
+                const off = offsets[nextRot];
+                
+                let tx = this.activePair.p1.x + off.x;
+                let ty = this.activePair.p1.y + off.y;
+                let nx = this.activePair.p1.x;
+                let ny = this.activePair.p1.y;
+
+                // Wall kick
+                if (tx < 0) { nx++; tx++; }
+                else if (tx >= COLS) { nx--; tx--; }
+                if (ty >= ROWS) { ny--; ty--; }
+
+                if (this.canMoveTo(nx, ny, tx, ty)) {
+                    this.activePair.p1.x = nx; this.activePair.p1.y = ny;
+                    this.activePair.p2.x = tx; this.activePair.p2.y = ty;
+                    this.activePair.rot = nextRot;
+                    sound.playRotate();
                 }
             }
 
-            getRotationOffset(rot) { switch(rot) { case 0: return { x:0, y:-1 }; case 1: return { x:1, y:0 }; case 2: return { x:0, y:1 }; case 3: return { x:-1, y:0 }; } }
-            canMoveTo(p1x, p1y, p2x, p2y) {
-                const check = (x, y) => (y < 0 ? x >= 0 && x < COLS : x >= 0 && x < COLS && y < ROWS && this.grid[y][x] === 0);
-                return check(p1x, p1y) && check(p2x, p2y);
-            }
-            softDrop(isDropping) { this.isFastDropping = isDropping; }
             hardDrop() {
                 if (this.gameState !== STATE_CONTROL) return;
-                let dropSteps = 0;
                 while (this.canMoveTo(this.activePair.p1.x, this.activePair.p1.y + 1, this.activePair.p2.x, this.activePair.p2.y + 1)) {
-                    this.activePair.p1.y++; this.activePair.p2.y++; dropSteps++;
+                    this.activePair.p1.y++; this.activePair.p2.y++;
+                    this.score += 2;
                 }
-                this.score += dropSteps * 2;
-                this.lockActivePair();
+                this.lockPair();
             }
 
-            lockActivePair() {
-                const lock = (p) => { if(p.y >= 0 && p.y < ROWS && p.x >= 0 && p.x < COLS) this.grid[p.y][p.x] = p.color; };
-                lock(this.activePair.p1); lock(this.activePair.p2);
+            lockPair() {
+                const { p1, p2 } = this.activePair;
+                if (p1.y >= 0) this.grid[p1.y][p1.x] = p1.c;
+                if (p2.y >= 0) this.grid[p2.y][p2.x] = p2.c;
+                
                 sound.playPop(0.7);
                 this.gameState = STATE_FALLING;
-                this.currentChain = 0;
+                this.chain = 0;
                 this.resolveGravity();
             }
 
@@ -689,14 +617,15 @@
                             while (currR + 1 < ROWS && this.grid[currR+1][c] === 0) {
                                 this.grid[currR+1][c] = this.grid[currR][c];
                                 this.grid[currR][c] = 0;
-                                currR++; moved = true;
+                                currR++;
+                                moved = true;
                             }
                         }
                     }
                 }
-                if (moved) setTimeout(() => this.resolveGravity(), 120);
-                else {
-                    this.syncGameState();
+                if (moved) {
+                    setTimeout(() => this.resolveGravity(), 150);
+                } else {
                     this.checkMatches();
                 }
             }
@@ -708,7 +637,8 @@
                 for (let r = 0; r < ROWS; r++) {
                     for (let c = 0; c < COLS; c++) {
                         const color = this.grid[r][c];
-                        if (color !== 0 && color !== 6 && !visited[r][c]) { // Garbage (6) doesn't match with itself
+                        // 色ブロック(1~5)のみ判定
+                        if (color > 0 && color < 6 && !visited[r][c]) {
                             const group = [];
                             const queue = [{r, c}];
                             visited[r][c] = true;
@@ -716,11 +646,12 @@
                             while (queue.length > 0) {
                                 const curr = queue.shift();
                                 group.push(curr);
-                                const neighbors = [{r: curr.r-1, c: curr.c}, {r: curr.r+1, c: curr.c}, {r: curr.r, c: curr.c-1}, {r: curr.r, c: curr.c+1}];
+                                const neighbors = [ {r: curr.r-1, c: curr.c}, {r: curr.r+1, c: curr.c}, {r: curr.r, c: curr.c-1}, {r: curr.r, c: curr.c+1} ];
                                 for (const n of neighbors) {
                                     if (n.r >= 0 && n.r < ROWS && n.c >= 0 && n.c < COLS) {
                                         if (!visited[n.r][n.c] && this.grid[n.r][n.c] === color) {
-                                            visited[n.r][n.c] = true; queue.push(n);
+                                            visited[n.r][n.c] = true;
+                                            queue.push(n);
                                         }
                                     }
                                 }
@@ -730,342 +661,367 @@
                     }
                 }
 
-                // Add adjacent garbage blocks to the pop list
                 if (toPop.length > 0) {
-                    const garbageToPop = new Set();
-                    toPop.forEach(cell => {
-                        const neighbors = [{r: cell.r-1, c: cell.c}, {r: cell.r+1, c: cell.c}, {r: cell.r, c: cell.c-1}, {r: cell.r, c: cell.c+1}];
-                        neighbors.forEach(n => {
-                            if (n.r >= 0 && n.r < ROWS && n.c >= 0 && n.c < COLS && this.grid[n.r][n.c] === 6) {
-                                garbageToPop.add(`${n.r},${n.c}`);
-                            }
-                        });
-                    });
-                    
-                    garbageToPop.forEach(str => {
-                        const [r, c] = str.split(',').map(Number);
-                        toPop.push({r, c});
-                    });
-                }
-
-                if (toPop.length > 0) {
-                    this.currentChain++;
+                    this.chain++;
                     this.popTargets = toPop;
                     this.gameState = STATE_POPPING;
-                    this.popAnimationTimer = 0;
+                    this.popTimer = 0;
                     
-                    const basePoints = toPop.length * 10;
-                    const chainBonus = Math.pow(this.currentChain, 2.5) * 8;
-                    this.score += Math.floor(basePoints + chainBonus);
-                    if (this.currentChain > this.maxChain) this.maxChain = this.currentChain;
+                    const pts = toPop.length * 10 + Math.pow(this.chain, 2.5) * 8;
+                    this.score += Math.floor(pts);
+                    document.getElementById('score').textContent = this.score;
+                    document.getElementById('mobile-score').textContent = this.score;
+                    document.getElementById('chain-count').textContent = this.chain;
                     
-                    // Calculate and Send Garbage
-                    let garbageGen = 0;
-                    if(this.currentChain === 2) garbageGen = 3;
-                    else if(this.currentChain === 3) garbageGen = 6;
-                    else if(this.currentChain >= 4) garbageGen = Math.pow(2, this.currentChain);
+                    sound.playChain(this.chain);
+                    this.showBanner(this.chain);
                     
-                    if(garbageGen > 0) {
-                        this.totalGarbageSent += garbageGen;
-                    }
+                    // シェイク＆フラッシュエフェクト（連鎖数で強化）
+                    this.shakeAmount = Math.min(this.chain * 4, 20);
+                    this.flashAlpha = Math.min(this.chain * 0.15, 0.8);
                     
-                    this.updateUI();
-                    sound.playChain(this.currentChain);
-                    this.showChainBanner(this.currentChain);
-                    this.syncGameState(); // Sync chain info & garbage info
-                    
-                    toPop.forEach(cell => this.createPopParticles(cell.c, cell.r, this.grid[cell.r][cell.c]));
+                    toPop.forEach(cell => this.createParticles(cell.c, cell.r, this.grid[cell.r][cell.c]));
+                    this.syncState();
                 } else {
-                    this.currentChain = 0;
-                    this.syncGameState(); // Clear chain UI for opponent
                     this.spawnPair();
                 }
             }
 
-            createPopParticles(gridX, gridY, colorId) {
-                const cellW = this.canvas.width / COLS, cellH = this.canvas.height / ROWS;
-                const px = gridX * cellW + cellW/2, py = gridY * cellH + cellH/2;
-                const col = COLORS[colorId] || { fill: '#ffffff' };
+            createParticles(gridX, gridY, colorId) {
+                const cellW = this.canvas.width / COLS;
+                const cellH = this.canvas.height / ROWS;
+                const px = gridX * cellW + cellW/2;
+                const py = gridY * cellH + cellH/2;
+                const fill = COLORS[colorId]?.fill || '#fff';
+
+                // 丸い破片
                 for (let i = 0; i < 8; i++) {
-                    const angle = Math.random() * Math.PI * 2, speed = 2 + Math.random() * 4;
-                    this.particles.push({ x: px, y: py, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, radius: 3+Math.random()*4, alpha: 1, color: col.fill, decay: 0.02+Math.random()*0.02 });
+                    const a = Math.random() * Math.PI * 2;
+                    const s = 3 + Math.random() * 6;
+                    this.particles.push({
+                        x: px, y: py, vx: Math.cos(a)*s, vy: Math.sin(a)*s,
+                        radius: 3 + Math.random()*4, alpha: 1, color: fill, decay: 0.02 + Math.random()*0.02, type: 'circle'
+                    });
+                }
+                // 星形
+                const starCount = Math.min(4 + this.chain * 2, 12);
+                for (let i = 0; i < starCount; i++) {
+                    const a = Math.random() * Math.PI * 2;
+                    const s = 4 + Math.random() * 8;
+                    this.particles.push({
+                        x: px, y: py, vx: Math.cos(a)*s, vy: Math.sin(a)*s,
+                        radius: 5 + Math.random()*6, alpha: 1, color: '#ffffff', decay: 0.02 + Math.random()*0.03,
+                        type: 'star', rot: Math.random()*Math.PI, rotSpeed: (Math.random()-0.5)*0.4
+                    });
                 }
             }
 
-            showChainBanner(chains) {
+            showBanner(chains) {
                 const banner = document.getElementById('chain-banner');
-                document.getElementById('chain-banner-num').textContent = `${chains} CHAIN!`;
-                banner.classList.remove('scale-0', 'opacity-0');
-                banner.classList.add('scale-110', 'opacity-100');
-                setTimeout(() => { banner.classList.remove('scale-110', 'opacity-100'); banner.classList.add('scale-0', 'opacity-0'); }, 1000);
-            }
+                const num = document.getElementById('chain-banner-num');
+                const sub = document.getElementById('chain-banner-sub');
 
-            showOpponentChainBanner(chains) {
-                const banner = document.getElementById('opp-chain-banner');
-                document.getElementById('opp-chain-banner-num').textContent = `${chains} CHAIN!`;
-                banner.classList.remove('scale-0', 'opacity-0');
-                banner.classList.add('scale-110', 'opacity-100');
-                setTimeout(() => { banner.classList.remove('scale-110', 'opacity-100'); banner.classList.add('scale-0', 'opacity-0'); }, 1000);
-            }
+                num.textContent = `${chains} CHAIN!`;
+                if (chains >= 5) {
+                    num.className = "text-5xl font-black retro-font stroke-black drop-shadow-[0_4px_12px_rgba(255,255,255,0.8)] text-rainbow";
+                    sub.textContent = "GODLIKE UNLEASHED!!!";
+                    sub.className = "text-xl font-black uppercase tracking-widest text-white drop-shadow-[0_0_10px_rgba(255,0,0,1)]";
+                } else if (chains >= 3) {
+                    num.className = "text-4xl font-black text-red-400 retro-font stroke-black drop-shadow-[0_4px_10px_rgba(255,0,0,0.8)]";
+                    sub.textContent = "Awesome Combo!";
+                    sub.className = "text-base font-bold text-yellow-300 uppercase tracking-widest drop-shadow";
+                } else {
+                    num.className = "text-3xl font-black text-yellow-300 retro-font stroke-black drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]";
+                    sub.textContent = chains === 1 ? "Pop!" : "Nice!";
+                    sub.className = "text-sm font-bold text-pink-400 uppercase tracking-widest drop-shadow";
+                }
 
-            updateUI() {
-                document.getElementById('score').textContent = this.score;
-                document.getElementById('chain-count').textContent = `${this.maxChain} Max`;
-            }
-
-            endGame(isWin) {
-                this.gameState = STATE_GAMEOVER;
-                sound.playGameOver();
+                banner.classList.remove('hidden', 'scale-0', 'opacity-0', 'animate-burst');
+                void banner.offsetWidth; // force reflow
+                banner.classList.add('animate-burst');
                 
-                const title = isWin ? "YOU WIN!" : "YOU LOSE";
-                const desc = `最高連鎖数: <span class="text-pink-400 font-bold">${this.maxChain}連鎖</span><br>最終スコア: <span class="text-yellow-400 font-bold">${this.score}点</span>`;
-                this.showOverlay(title, desc, true);
+                if(this.bannerTimer) clearTimeout(this.bannerTimer);
+                this.bannerTimer = setTimeout(() => {
+                    banner.classList.remove('animate-burst');
+                    banner.classList.add('scale-0', 'opacity-0');
+                }, 1500);
             }
 
-            update(now) {
-                if(this.gameState === STATE_WAITING || this.gameState === STATE_COUNTDOWN) return;
+            endGame(isWinner) {
+                this.gameState = STATE_GAMEOVER;
+                if (!isWinner && matchRef) {
+                    updateDoc(matchRef, { status: isPlayer1 ? 'gameover_p1' : 'gameover_p2' }).catch(()=>{});
+                }
+                
+                sound.playGameOver();
+                const title = isWinner ? "YOU WIN!" : "GAME OVER";
+                const titleClass = isWinner ? "text-yellow-400" : "text-red-500";
+                this.showOverlay(title, `Score: ${this.score}`, true);
+                document.getElementById('overlay-title').className = `text-5xl font-black ${titleClass} retro-font tracking-wider mb-4 drop-shadow-lg text-center`;
+            }
 
+            showOverlay(titleTxt, descTxt, showBtn) {
+                document.getElementById('overlay-message').classList.remove('hidden');
+                document.getElementById('overlay-title').textContent = titleTxt;
+                document.getElementById('overlay-desc').innerHTML = descTxt;
+                if(showBtn) document.getElementById('restart-btn').classList.remove('hidden');
+                else document.getElementById('restart-btn').classList.add('hidden');
+            }
+
+            updateAndDraw(now) {
                 if (now - this.lastEyeMove > 1800) {
-                    this.eyeLookDir.x = (Math.random() - 0.5) * 5;
-                    this.eyeLookDir.y = (Math.random() - 0.5) * 5;
+                    this.eyeLookDir = { x: (Math.random()-0.5)*5, y: (Math.random()-0.5)*5 };
                     this.lastEyeMove = now;
                 }
 
-                const currentDropInterval = Math.max(120, this.dropInterval - Math.floor(this.score / 150) * 45);
-
+                // Game Logic Update
                 if (this.gameState === STATE_CONTROL) {
-                    const elapsed = now - this.lastDropTime;
-                    const activeInterval = this.isFastDropping ? 60 : currentDropInterval;
-                    
-                    if (elapsed >= activeInterval) {
-                        if (this.canMoveTo(this.activePair.p1.x, this.activePair.p1.y + 1, this.activePair.p2.x, this.activePair.p2.y + 1)) {
+                    const activeInterval = this.isFastDropping ? 60 : this.dropInterval;
+                    if (now - this.lastDropTime >= activeInterval) {
+                        if (this.canMoveTo(this.activePair.p1.x, this.activePair.p1.y+1, this.activePair.p2.x, this.activePair.p2.y+1)) {
                             this.activePair.p1.y++; this.activePair.p2.y++;
                         } else {
-                            this.lockActivePair();
+                            this.lockPair();
                         }
                         this.lastDropTime = now;
                     }
-                }
-
-                if (this.gameState === STATE_POPPING) {
-                    this.popAnimationTimer += 0.05;
-                    if (this.popAnimationTimer >= 1.0) {
-                        this.popTargets.forEach(cell => { this.grid[cell.r][cell.c] = 0; });
+                } else if (this.gameState === STATE_POPPING) {
+                    this.popTimer += 0.05;
+                    if (this.popTimer >= 1.0) {
+                        this.popTargets.forEach(cell => this.grid[cell.r][cell.c] = 0);
                         this.popTargets = [];
                         this.gameState = STATE_FALLING;
                         this.resolveGravity();
                     }
                 }
 
+                // Particle Update
                 for (let i = this.particles.length - 1; i >= 0; i--) {
-                    const p = this.particles[i];
-                    p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.alpha -= p.decay;
+                    let p = this.particles[i];
+                    p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.alpha -= p.decay;
                     if (p.alpha <= 0) this.particles.splice(i, 1);
                 }
-            }
 
-            hasSameAdjacent(c, r, dc, dr, color) {
-                if(color === 6) return false; // Garbage blocks don't connect visually
-                const tc = c + dc, tr = r + dr;
-                if (tc < 0 || tc >= COLS || tr < 0 || tr >= ROWS) return false;
-                return this.grid[tr][tc] === color;
-            }
-
-            drawPuyo(ctx, cx, cy, radius, colorId, isStatic = false, rot = 0) {
-                const colorConfig = COLORS[colorId];
-                if (!colorConfig) return;
-
-                ctx.save();
-                ctx.translate(cx, cy);
-
-                let breathe = 1;
-                if (!isStatic && colorId !== 6) { // No breathing for garbage
-                    breathe = 1 + Math.sin(performance.now() * 0.003 + cx*cy) * 0.02;
-                }
-                ctx.scale(breathe, breathe);
-
-                ctx.beginPath();
-                ctx.arc(0, 0, radius, 0, Math.PI * 2);
+                // --- RENDERING ---
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 
-                const gradient = ctx.createRadialGradient(-radius*0.3, -radius*0.3, radius*0.1, 0, 0, radius);
-                gradient.addColorStop(0, '#ffffff');
-                gradient.addColorStop(0.2, colorConfig.fill);
-                gradient.addColorStop(1, colorConfig.shadow);
-                
-                ctx.fillStyle = gradient;
-                ctx.shadowColor = colorConfig.fill;
-                ctx.shadowBlur = colorId !== 6 ? 8 : 2; // Less glow for garbage
-                ctx.fill();
-                ctx.shadowBlur = 0;
-
-                ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-
-                if (colorId !== 6) {
-                    this.drawEyes(ctx, radius);
-                } else {
-                    // Draw a little 'X' or cross for garbage texture
-                    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-                    ctx.beginPath();
-                    ctx.moveTo(-radius*0.3, -radius*0.3); ctx.lineTo(radius*0.3, radius*0.3);
-                    ctx.moveTo(radius*0.3, -radius*0.3); ctx.lineTo(-radius*0.3, radius*0.3);
-                    ctx.stroke();
+                this.ctx.save();
+                // 画面シェイク
+                if (this.shakeAmount > 0) {
+                    this.ctx.translate((Math.random()-0.5)*this.shakeAmount, (Math.random()-0.5)*this.shakeAmount);
+                    this.shakeAmount *= 0.85;
+                    if(this.shakeAmount < 0.5) this.shakeAmount = 0;
                 }
-                ctx.restore();
+
+                this.drawGrid(this.ctx, this.canvas, this.grid, this.popTargets, this.popTimer);
+                if (this.gameState === STATE_CONTROL) this.drawActive(this.ctx, this.canvas);
+                this.drawParticles(this.ctx);
+                this.ctx.restore();
+
+                // フラッシュ
+                if (this.flashAlpha > 0) {
+                    this.ctx.fillStyle = `rgba(255, 255, 255, ${this.flashAlpha})`;
+                    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                    this.flashAlpha -= 0.05;
+                }
+
+                // Opponent rendering
+                this.oppCtx.clearRect(0, 0, this.oppCanvas.width, this.oppCanvas.height);
+                this.drawGrid(this.oppCtx, this.oppCanvas, this.oppGrid, [], 0, true);
             }
 
-            drawEyes(ctx, radius) {
-                const eyeOff = radius * 0.35, eyeRad = radius * 0.22, pupilRad = radius * 0.11;
-                ctx.fillStyle = '#ffffff';
-                ctx.beginPath(); ctx.arc(-eyeOff, -radius*0.1, eyeRad, 0, Math.PI*2); ctx.arc(eyeOff, -radius*0.1, eyeRad, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#0f172a';
-                ctx.beginPath(); ctx.arc(-eyeOff+this.eyeLookDir.x*0.3, -radius*0.1+this.eyeLookDir.y*0.3, pupilRad, 0, Math.PI*2); ctx.arc(eyeOff+this.eyeLookDir.x*0.3, -radius*0.1+this.eyeLookDir.y*0.3, pupilRad, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#ffffff';
-                ctx.beginPath(); ctx.arc(-eyeOff+this.eyeLookDir.x*0.3-1, -radius*0.1+this.eyeLookDir.y*0.3-1, 1.5, 0, Math.PI*2); ctx.arc(eyeOff+this.eyeLookDir.x*0.3-1, -radius*0.1+this.eyeLookDir.y*0.3-1, 1.5, 0, Math.PI*2); ctx.fill();
-            }
+            drawGrid(ctx, cvs, gridData, popList, pTimer, isOpponent = false) {
+                const cW = cvs.width / COLS;
+                const cH = cvs.height / ROWS;
+                const radius = Math.min(cW, cH) * 0.46;
 
-            drawGrid() {
-                const cellW = this.canvas.width / COLS, cellH = this.canvas.height / ROWS, radius = Math.min(cellW, cellH) * 0.46;
                 for (let r = 0; r < ROWS; r++) {
                     for (let c = 0; c < COLS; c++) {
-                        const colorId = this.grid[r][c];
-                        if (colorId !== 0) {
-                            const isPopping = this.popTargets.some(cell => cell.r === r && cell.c === c);
-                            const cx = c * cellW + cellW/2, cy = r * cellH + cellH/2;
-
+                        const colId = gridData[r][c];
+                        if (colId !== 0) {
+                            const isPopping = popList.some(p => p.r === r && p.c === c);
+                            const cx = c * cW + cW/2;
+                            const cy = r * cH + cH/2;
+                            
                             if (isPopping) {
-                                const scale = 1 + this.popAnimationTimer * 0.5, alpha = 1 - this.popAnimationTimer;
-                                this.ctx.save(); this.ctx.globalAlpha = alpha; this.drawPuyo(this.ctx, cx, cy, radius * scale, colorId); this.ctx.restore();
+                                ctx.save();
+                                ctx.globalAlpha = 1 - pTimer;
+                                this.drawNode(ctx, cx, cy, radius * (1 + pTimer*0.5), colId, false, isOpponent);
+                                ctx.restore();
                             } else {
-                                if(colorId !== 6) {
-                                    const cN = this.hasSameAdjacent(c, r, 0, -1, colorId), cS = this.hasSameAdjacent(c, r, 0, 1, colorId), cE = this.hasSameAdjacent(c, r, 1, 0, colorId), cW = this.hasSameAdjacent(c, r, -1, 0, colorId);
-                                    if (COLORS[colorId] && (cN || cS || cE || cW)) {
-                                        this.ctx.fillStyle = COLORS[colorId].fill; this.ctx.beginPath(); const bridgeW = radius * 0.8;
-                                        if (cN) this.ctx.fillRect(cx - bridgeW/2, cy - cellH/2, bridgeW, cellH/2);
-                                        if (cS) this.ctx.fillRect(cx - bridgeW/2, cy, bridgeW, cellH/2);
-                                        if (cE) this.ctx.fillRect(cx, cy - bridgeW/2, cellW/2, bridgeW);
-                                        if (cW) this.ctx.fillRect(cx - cellW/2, cy - bridgeW/2, cellW/2, bridgeW);
-                                    }
+                                // Connections
+                                const colorConf = COLORS[colId];
+                                if (colorConf && colId !== 6) { // Garbage doesn't connect
+                                    const check = (dr, dc) => (r+dr>=0 && r+dr<ROWS && c+dc>=0 && c+dc<COLS && gridData[r+dr][c+dc] === colId);
+                                    ctx.fillStyle = colorConf.fill;
+                                    ctx.beginPath();
+                                    const bw = radius * 0.8;
+                                    if (check(-1, 0)) ctx.fillRect(cx - bw/2, cy - cH/2, bw, cH/2); // N
+                                    if (check(1, 0)) ctx.fillRect(cx - bw/2, cy, bw, cH/2); // S
+                                    if (check(0, 1)) ctx.fillRect(cx, cy - bw/2, cW/2, bw); // E
+                                    if (check(0, -1)) ctx.fillRect(cx - cW/2, cy - bw/2, cW/2, bw); // W
                                 }
-                                this.drawPuyo(this.ctx, cx, cy, radius, colorId);
+                                this.drawNode(ctx, cx, cy, radius, colId, false, isOpponent);
                             }
                         }
                     }
                 }
             }
 
-            drawOpponentGrid() {
-                const cellW = this.oppCanvas.width / COLS, cellH = this.oppCanvas.height / ROWS, radius = Math.min(cellW, cellH) * 0.46;
-                this.oppCtx.clearRect(0, 0, this.oppCanvas.width, this.oppCanvas.height);
+            drawActive(ctx, cvs) {
+                const cW = cvs.width / COLS;
+                const cH = cvs.height / ROWS;
+                const radius = Math.min(cW, cH) * 0.46;
                 
-                this.oppCtx.strokeStyle = 'rgba(239, 68, 68, 0.15)'; // Reddish grid lines
-                this.oppCtx.lineWidth = 1;
-                for (let r = 0; r <= ROWS; r++) { this.oppCtx.beginPath(); this.oppCtx.moveTo(0, r * cellH); this.oppCtx.lineTo(this.oppCanvas.width, r * cellH); this.oppCtx.stroke(); }
-                for (let c = 0; c <= COLS; c++) { this.oppCtx.beginPath(); this.oppCtx.moveTo(c * cellW, 0); this.oppCtx.lineTo(c * cellW, this.oppCanvas.height); this.oppCtx.stroke(); }
-
-                for (let r = 0; r < ROWS; r++) {
-                    for (let c = 0; c < COLS; c++) {
-                        const colorId = this.oppGrid[r][c];
-                        if (colorId !== 0) {
-                            const cx = c * cellW + cellW/2, cy = r * cellH + cellH/2;
-                            this.drawPuyo(this.oppCtx, cx, cy, radius, colorId, true); // static rendering
-                        }
-                    }
-                }
-            }
-
-            drawActivePair() {
-                if (this.gameState !== STATE_CONTROL) return;
-                const cellW = this.canvas.width / COLS, cellH = this.canvas.height / ROWS, radius = Math.min(cellW, cellH) * 0.46;
-
-                let dropY1 = this.activePair.p1.y, dropY2 = this.activePair.p2.y;
-                while (this.canMoveTo(this.activePair.p1.x, dropY1 + 1, this.activePair.p2.x, dropY2 + 1)) { dropY1++; dropY2++; }
-                const drawGhost = (x, y, colId) => {
-                    if (y >= 0) {
-                        this.ctx.save(); this.ctx.globalAlpha = 0.25; this.ctx.strokeStyle = COLORS[colId]?.fill || '#fff';
-                        this.ctx.lineWidth = 2; this.ctx.setLineDash([4, 4]); this.ctx.beginPath(); this.ctx.arc(x*cellW+cellW/2, y*cellH+cellH/2, radius-2, 0, Math.PI*2); this.ctx.stroke(); this.ctx.restore();
+                // Ghost
+                let dy1 = this.activePair.p1.y, dy2 = this.activePair.p2.y;
+                while (this.canMoveTo(this.activePair.p1.x, dy1+1, this.activePair.p2.x, dy2+1)) { dy1++; dy2++; }
+                
+                ctx.save();
+                ctx.globalAlpha = 0.25;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([3, 3]);
+                const drawG = (x, y, c) => {
+                    if(y >= 0) {
+                        ctx.strokeStyle = COLORS[c].fill;
+                        ctx.beginPath(); ctx.arc(x*cW+cW/2, y*cH+cH/2, radius-2, 0, Math.PI*2); ctx.stroke();
                     }
                 };
-                drawGhost(this.activePair.p1.x, dropY1, this.activePair.p1.color); drawGhost(this.activePair.p2.x, dropY2, this.activePair.p2.color);
+                drawG(this.activePair.p1.x, dy1, this.activePair.p1.c);
+                drawG(this.activePair.p2.x, dy2, this.activePair.p2.c);
+                ctx.restore();
 
-                const drawP = (p) => { if (p.y >= 0) this.drawPuyo(this.ctx, p.x*cellW+cellW/2, p.y*cellH+cellH/2, radius, p.color, false); };
-                drawP(this.activePair.p1); drawP(this.activePair.p2);
+                // Active
+                const drawA = (p) => {
+                    if(p.y >= 0) this.drawNode(ctx, p.x*cW+cW/2, p.y*cH+cH/2, radius, p.c, true);
+                };
+                drawA(this.activePair.p1); drawA(this.activePair.p2);
             }
 
-            drawParticles() {
-                this.particles.forEach(p => { this.ctx.save(); this.ctx.globalAlpha = p.alpha; this.ctx.fillStyle = p.color; this.ctx.beginPath(); this.ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); this.ctx.fill(); this.ctx.restore(); });
+            drawNode(ctx, cx, cy, radius, colId, isActive, isOpponent = false) {
+                const conf = COLORS[colId];
+                if (!conf) return;
+                ctx.save();
+                ctx.translate(cx, cy);
+                
+                let scale = 1;
+                if (!isActive && !isOpponent) scale = 1 + Math.sin(performance.now()*0.003 + cx*cy)*0.02;
+                ctx.scale(scale, scale);
+
+                ctx.beginPath();
+                ctx.arc(0, 0, radius, 0, Math.PI*2);
+                
+                const grad = ctx.createRadialGradient(-radius*0.3, -radius*0.3, radius*0.1, 0, 0, radius);
+                grad.addColorStop(0, '#fff');
+                grad.addColorStop(0.2, conf.fill);
+                grad.addColorStop(1, conf.shadow);
+                ctx.fillStyle = grad;
+                ctx.fill();
+                
+                ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // Eyes (skip for garbage)
+                if (colId !== 6) {
+                    const eOff = radius * 0.35, eRad = radius * 0.22, pRad = radius * 0.11;
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.arc(-eOff, -radius*0.1, eRad, 0, Math.PI*2);
+                    ctx.arc(eOff, -radius*0.1, eRad, 0, Math.PI*2);
+                    ctx.fill();
+                    
+                    const lx = isOpponent ? 0 : this.eyeLookDir.x * 0.3;
+                    const ly = isOpponent ? 0 : this.eyeLookDir.y * 0.3;
+                    
+                    ctx.fillStyle = '#0f172a';
+                    ctx.beginPath();
+                    ctx.arc(-eOff+lx, -radius*0.1+ly, pRad, 0, Math.PI*2);
+                    ctx.arc(eOff+lx, -radius*0.1+ly, pRad, 0, Math.PI*2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.arc(-eOff+lx-1, -radius*0.1+ly-1, 1.5, 0, Math.PI*2);
+                    ctx.arc(eOff+lx-1, -radius*0.1+ly-1, 1.5, 0, Math.PI*2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            drawParticles(ctx) {
+                this.particles.forEach(p => {
+                    ctx.save();
+                    ctx.globalAlpha = p.alpha;
+                    ctx.fillStyle = p.color;
+                    if (p.type === 'star') {
+                        ctx.translate(p.x, p.y); ctx.rotate(p.rot); p.rot += p.rotSpeed;
+                        ctx.beginPath();
+                        for (let i = 0; i < 8; i++) {
+                            const rad = i%2===0 ? p.radius : p.radius*0.3;
+                            const a = (i*Math.PI)/4;
+                            if(i===0) ctx.moveTo(Math.cos(a)*rad, Math.sin(a)*rad);
+                            else ctx.lineTo(Math.cos(a)*rad, Math.sin(a)*rad);
+                        }
+                        ctx.fill();
+                    } else {
+                        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2); ctx.fill();
+                    }
+                    ctx.restore();
+                });
             }
 
             drawNext() {
                 this.nextCtx.clearRect(0, 0, this.nextCanvas.width, this.nextCanvas.height);
-                const w = this.nextCanvas.width, h = this.nextCanvas.height, radius = Math.min(w, h) * 0.2;
-                this.drawPuyo(this.nextCtx, w/2, h*0.3, radius, this.nextPair.p2Color, true);
-                this.drawPuyo(this.nextCtx, w/2, h*0.7, radius, this.nextPair.p1Color, true);
-            }
-
-            render(now) {
-                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                this.ctx.strokeStyle = 'rgba(168, 85, 247, 0.08)'; this.ctx.lineWidth = 1;
-                const cellW = this.canvas.width / COLS, cellH = this.canvas.height / ROWS;
-                for (let r = 0; r <= ROWS; r++) { this.ctx.beginPath(); this.ctx.moveTo(0, r * cellH); this.ctx.lineTo(this.canvas.width, r * cellH); this.ctx.stroke(); }
-                for (let c = 0; c <= COLS; c++) { this.ctx.beginPath(); this.ctx.moveTo(c * cellW, 0); this.ctx.lineTo(c * cellW, this.canvas.height); this.ctx.stroke(); }
-
-                this.drawGrid();
-                this.drawActivePair();
-                this.drawParticles();
-                
-                this.drawOpponentGrid();
+                const w = this.nextCanvas.width, h = this.nextCanvas.height, r = Math.min(w,h)*0.2;
+                this.drawNode(this.nextCtx, w/2, h*0.3, r, this.nextPair.c2, false, true);
+                this.drawNode(this.nextCtx, w/2, h*0.7, r, this.nextPair.c1, false, true);
             }
         }
 
         let game;
-        
         window.onload = function() {
-            game = new MultiplayerPuyoGame();
-            game.initMultiplayer(); // Start matching automatically
+            game = new MultiplayerGame();
+            game.initMultiplayer();
 
             document.addEventListener('keydown', (e) => {
                 if (game.gameState === STATE_GAMEOVER || game.gameState === STATE_WAITING || game.gameState === STATE_COUNTDOWN) return;
                 switch(e.code) {
-                    case 'ArrowLeft': game.moveLeft(); break;
-                    case 'ArrowRight': game.moveRight(); break;
+                    case 'ArrowLeft': game.move(-1); break;
+                    case 'ArrowRight': game.move(1); break;
                     case 'ArrowUp': case 'KeyX': game.rotate(1); break;
                     case 'KeyZ': game.rotate(-1); break;
-                    case 'ArrowDown': game.softDrop(true); break;
+                    case 'ArrowDown': game.isFastDropping = true; break;
                     case 'Space': game.hardDrop(); break;
                 }
             });
+            document.addEventListener('keyup', (e) => { if(e.code === 'ArrowDown') game.isFastDropping = false; });
 
-            document.addEventListener('keyup', (e) => { if (e.code === 'ArrowDown') game.softDrop(false); });
-
-            const setTouchBtn = (id, press, release) => {
-                const btn = document.getElementById(id);
-                btn.addEventListener('touchstart', (e) => { e.preventDefault(); press(); });
-                btn.addEventListener('mousedown', (e) => { e.preventDefault(); press(); });
-                if (release) {
-                    btn.addEventListener('touchend', (e) => { e.preventDefault(); release(); });
-                    btn.addEventListener('mouseup', (e) => { e.preventDefault(); release(); });
-                }
+            const bindBtn = (id, down, up) => {
+                const el = document.getElementById(id);
+                const start = (e) => { e.preventDefault(); down(); };
+                const end = (e) => { e.preventDefault(); if(up) up(); };
+                el.addEventListener('touchstart', start); el.addEventListener('mousedown', start);
+                el.addEventListener('touchend', end); el.addEventListener('mouseup', end);
+                el.addEventListener('mouseleave', end);
             };
 
-            setTouchBtn('ctrl-left', () => game.moveLeft());
-            setTouchBtn('ctrl-right', () => game.moveRight());
-            setTouchBtn('ctrl-rot-l', () => game.rotate(-1));
-            setTouchBtn('ctrl-rot-r', () => game.rotate(1));
-            setTouchBtn('ctrl-down', () => game.softDrop(true), () => game.softDrop(false));
-            setTouchBtn('ctrl-hard', () => game.hardDrop());
+            bindBtn('ctrl-left', () => game.move(-1));
+            bindBtn('ctrl-right', () => game.move(1));
+            bindBtn('ctrl-rot-l', () => game.rotate(-1));
+            bindBtn('ctrl-rot-r', () => game.rotate(1));
+            bindBtn('ctrl-down', () => { game.isFastDropping = true; }, () => { game.isFastDropping = false; });
+            bindBtn('ctrl-hard', () => game.hardDrop());
 
             document.getElementById('restart-btn').addEventListener('click', () => {
-                window.location.reload(); // Reload to re-queue easily
+                document.getElementById('overlay-message').classList.add('hidden');
+                game.initMultiplayer(); // Re-queue
             });
 
             function loop(timestamp) {
-                game.update(timestamp);
-                game.render(timestamp);
+                game.updateAndDraw(timestamp);
                 requestAnimationFrame(loop);
             }
-
             requestAnimationFrame(loop);
         };
     </script>
