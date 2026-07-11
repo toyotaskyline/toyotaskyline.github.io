@@ -2,8 +2,8 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Puyo Fall - Online Multiplayer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Puyo Fall - Online & Solo</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts -->
@@ -13,7 +13,7 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background: radial-gradient(circle at center, #1e1b4b 0%, #030712 100%);
+            background: radial-gradient(circle at center, #131130 0%, #030712 100%);
             touch-action: manipulation;
             overscroll-behavior: none;
         }
@@ -54,23 +54,94 @@
 </head>
 <body class="text-white min-h-screen flex flex-col items-center justify-between p-2 overflow-hidden select-none">
 
-    <!-- Header -->
-    <header class="w-full max-w-2xl text-center py-2 flex justify-between items-center px-4">
-        <div>
-            <h1 class="text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 retro-font">
-                PUYO FALL ONLINE
-            </h1>
-            <p id="connection-status" class="text-xs text-yellow-300 font-semibold tracking-widest uppercase animate-pulse">Connecting to server...</p>
+    <!-- Notification/Toast system instead of browser alert() -->
+    <div id="toast-notification" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-900/90 border border-purple-500/50 px-6 py-3 rounded-full text-sm font-semibold tracking-wide shadow-2xl transition-all duration-300 opacity-0 pointer-events-none z-50">
+        通知メッセージ
+    </div>
+
+    <!-- 1. TOP MENU SCREEN -->
+    <div id="screen-top" class="fixed inset-0 flex flex-col items-center justify-center p-4 z-40 bg-slate-950/95 overflow-y-auto">
+        <div class="w-full max-w-md bg-gray-900/60 border border-purple-500/30 rounded-3xl p-6 backdrop-blur-md shadow-2xl flex flex-col gap-6 text-center">
+            
+            <!-- Logo -->
+            <div>
+                <h1 class="text-4xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 retro-font">
+                    PUYO FALL
+                </h1>
+                <p class="text-xs text-purple-300 font-bold tracking-widest uppercase">Combo Chain Puzzle</p>
+            </div>
+
+            <!-- Profile & Login Panel -->
+            <div class="bg-slate-950/70 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+                <div id="auth-unlogged" class="flex flex-col gap-2">
+                    <p class="text-xs text-gray-400">Googleログインでハイスコアを保存できます</p>
+                    <button id="btn-google-login" class="bg-white hover:bg-gray-100 text-gray-900 font-bold py-2 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md">
+                        <i class="fab fa-google text-red-500"></i> Googleアカウントでログイン
+                    </button>
+                    <button id="btn-guest-login" class="text-xs text-purple-400 hover:underline">ゲスト（匿名）としてプレイする</button>
+                </div>
+
+                <div id="auth-logged" class="hidden flex flex-col gap-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-400">ログイン中</span>
+                        <button id="btn-logout" class="text-xs text-red-400 hover:underline">ログアウト</button>
+                    </div>
+                    
+                    <!-- Username Form -->
+                    <div class="flex gap-2">
+                        <input id="input-username" type="text" maxlength="12" placeholder="プレイヤー名" class="bg-gray-800 border border-gray-700 rounded-xl px-3 py-1.5 text-sm font-semibold text-white focus:outline-none focus:border-purple-500 flex-1">
+                        <button id="btn-update-name" class="bg-purple-600 hover:bg-purple-500 text-white font-bold px-4 py-1.5 rounded-xl text-sm transition-all">変更</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats (High Score) -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-slate-950/50 border border-gray-800 rounded-2xl p-3">
+                    <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">最高得点</div>
+                    <div id="top-high-score" class="text-2xl font-black text-yellow-400 retro-font">0</div>
+                </div>
+                <div class="bg-slate-950/50 border border-gray-800 rounded-2xl p-3 flex flex-col justify-center items-center">
+                    <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">ユーザー名</div>
+                    <div id="top-username" class="text-sm font-bold text-blue-300 truncate max-w-[120px]">ゲスト</div>
+                </div>
+            </div>
+
+            <!-- Mode Selection -->
+            <div class="flex flex-col gap-3 mt-2">
+                <button id="btn-mode-solo" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 py-4 rounded-2xl font-black text-base tracking-widest uppercase shadow-lg shadow-indigo-500/20 transform hover:scale-[1.02] active:scale-95 transition-all">
+                    <i class="fas fa-user mr-2"></i> 1人プレイで遊ぶ
+                </button>
+                <button id="btn-mode-multi" class="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 py-4 rounded-2xl font-black text-base tracking-widest uppercase shadow-lg shadow-purple-500/20 transform hover:scale-[1.02] active:scale-95 transition-all">
+                    <i class="fas fa-users mr-2"></i> オンライン対戦
+                </button>
+            </div>
+
         </div>
-        <button id="sound-toggle" class="bg-gray-800 hover:bg-gray-700 p-2.5 rounded-xl border border-purple-500/30 transition-all text-purple-400">
-            <i class="fas fa-volume-up" id="sound-icon"></i>
-        </button>
+    </div>
+
+    <!-- Header -->
+    <header class="w-full max-w-5xl text-center py-2 flex justify-between items-center px-4">
+        <div>
+            <h1 class="text-xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 retro-font">
+                PUYO FALL
+            </h1>
+            <p id="connection-status" class="text-[10px] text-blue-300 font-semibold tracking-widest uppercase">SOLO MODE</p>
+        </div>
+        <div class="flex gap-2">
+            <button id="btn-back-to-menu" class="bg-gray-800 hover:bg-red-900/60 p-2 px-3 rounded-xl border border-gray-700 hover:border-red-500/50 transition-all text-xs text-gray-300 font-bold">
+                <i class="fas fa-home mr-1"></i> やめる
+            </button>
+            <button id="sound-toggle" class="bg-gray-800 hover:bg-gray-700 p-2.5 rounded-xl border border-purple-500/30 transition-all text-purple-400">
+                <i class="fas fa-volume-up" id="sound-icon"></i>
+            </button>
+        </div>
     </header>
 
     <!-- Main Content Area -->
     <main class="flex-1 flex flex-col md:flex-row items-center justify-center gap-4 w-full max-w-5xl max-h-[85vh]">
         
-        <!-- Left Panel: Next Puyo & Stats -->
+        <!-- Left Panel: Next Puyo & Stats (Desktop/Large screen only) -->
         <div class="flex md:flex-col justify-between items-center w-full max-w-md md:w-32 gap-2 px-2 hidden md:flex">
             <div class="bg-gray-950/80 border border-purple-500/20 rounded-2xl p-2 w-full flex flex-col items-center justify-center h-28 backdrop-blur-sm shadow-xl">
                 <div class="text-[10px] text-purple-300 font-bold uppercase tracking-wider mb-1">Next</div>
@@ -85,18 +156,18 @@
             </div>
         </div>
 
-        <!-- Center: Game Boards (Player & Opponent side-by-side) -->
+        <!-- Center: Game Boards -->
         <div class="flex flex-row justify-center items-end gap-2 md:gap-6 w-full max-h-[55vh] md:max-h-none">
             
             <!-- Player Board -->
             <div class="relative flex flex-col items-center">
                 <div class="mb-1 flex justify-between w-full px-2">
-                    <span class="text-xs font-bold text-blue-300 retro-font">YOU</span>
+                    <span id="player-label-name" class="text-xs font-bold text-blue-300 retro-font">YOU</span>
                     <span id="mobile-score" class="text-xs font-bold text-yellow-400 retro-font md:hidden">0</span>
                 </div>
                 <div class="relative bg-gray-950/90 border-4 border-blue-500/40 rounded-xl overflow-hidden shadow-2xl shadow-blue-500/20 p-1">
                     <div class="absolute inset-0 bg-[radial-gradient(#1e1b4b_1px,transparent_1px)] [background-size:16px_16px] opacity-20 pointer-events-none"></div>
-                    <canvas id="game-canvas" class="block rounded-lg" style="aspect-ratio: 6 / 12; height: min(50vh, 420px);"></canvas>
+                    <canvas id="game-canvas" class="block rounded-lg" style="aspect-ratio: 6 / 12; height: min(45vh, 380px);"></canvas>
                     
                     <!-- Chain Banner -->
                     <div id="chain-banner" class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center transform scale-0 opacity-0 transition-all duration-300 z-10">
@@ -106,49 +177,67 @@
                 </div>
             </div>
 
-            <!-- Opponent Board (Slightly smaller, opacity lowered slightly) -->
-            <div id="opponent-container" class="relative flex flex-col items-center opacity-90 transition-opacity duration-500">
+            <!-- Opponent Board (Hidden in solo mode) -->
+            <div id="opponent-container" class="relative flex flex-col items-center opacity-90 transition-opacity duration-500 hidden">
                 <div class="mb-1 flex justify-between w-full px-2">
-                    <span class="text-xs font-bold text-red-300 retro-font">OPPONENT</span>
+                    <span id="opponent-label-name" class="text-xs font-bold text-red-300 retro-font">OPPONENT</span>
                     <span id="opponent-score" class="text-xs font-bold text-gray-400 retro-font">0</span>
                 </div>
                 <div class="relative bg-gray-950/90 border-4 border-red-500/30 rounded-xl overflow-hidden shadow-lg p-1">
                     <div class="absolute inset-0 bg-[radial-gradient(#3f1a1a_1px,transparent_1px)] [background-size:16px_16px] opacity-20 pointer-events-none"></div>
-                    <canvas id="opponent-canvas" class="block rounded-lg" style="aspect-ratio: 6 / 12; height: min(40vh, 340px);"></canvas>
+                    <canvas id="opponent-canvas" class="block rounded-lg" style="aspect-ratio: 6 / 12; height: min(35vh, 300px);"></canvas>
                     
                     <!-- Opponent Status Overlay -->
-                    <div id="opponent-status" class="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm z-10">
-                        <span class="text-xs font-bold text-gray-300 uppercase tracking-widest text-center px-2">Waiting<br>for player...</span>
+                    <div id="opponent-status" class="absolute inset-0 bg-black/75 flex items-center justify-center backdrop-blur-sm z-10">
+                        <span id="opponent-status-text" class="text-xs font-bold text-gray-300 uppercase tracking-widest text-center px-2">Waiting<br>for player...</span>
                     </div>
                 </div>
             </div>
 
         </div>
 
-        <!-- Right Panel: Controls -->
-        <div class="w-full max-w-md flex flex-col gap-2 px-2 md:w-48 md:justify-center mt-2 md:mt-0">
-            <div class="grid grid-cols-5 gap-1.5 w-full">
-                <button id="ctrl-left" class="bg-gray-800/80 active:bg-blue-600/90 hover:bg-gray-700/80 border border-gray-700 py-3 rounded-xl flex flex-col items-center justify-center group">
-                    <i class="fas fa-arrow-left text-base text-gray-300 group-active:text-white"></i>
+        <!-- Next Block indicator for mobile layout -->
+        <div class="md:hidden flex gap-4 bg-gray-950/40 border border-gray-800 rounded-xl p-1.5 px-3 items-center">
+            <span class="text-xs text-purple-300 font-bold uppercase">Next:</span>
+            <canvas id="next-canvas-mobile" width="60" height="100" class="w-7 h-12"></canvas>
+        </div>
+
+    </main>
+
+    <!-- Handheld Controller Panel (Left alignment for movement, Right alignment for Rotation) -->
+    <div id="mobile-gamepad" class="w-full max-w-lg px-2 flex justify-between items-center gap-2 mt-2 select-none">
+        
+        <!-- Left Side: Movement & Drop (D-PAD style) -->
+        <div class="flex flex-col items-center gap-1 bg-gray-900/40 p-2 rounded-2xl border border-gray-800/50 w-[55%]">
+            <button id="ctrl-hard" class="w-full bg-indigo-900/40 active:bg-indigo-600/90 border border-indigo-500/30 py-2 rounded-xl text-[10px] font-black text-indigo-300 uppercase tracking-widest transition-all">
+                <i class="fas fa-angles-down mr-1"></i> Hard Drop
+            </button>
+            <div class="grid grid-cols-3 gap-1.5 w-full mt-1">
+                <button id="ctrl-left" class="bg-gray-800/80 active:bg-blue-600/90 border border-gray-700 py-3.5 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-arrow-left text-lg text-gray-300"></i>
                 </button>
-                <button id="ctrl-rot-l" class="bg-purple-900/40 active:bg-purple-600/90 hover:bg-purple-800/50 border border-purple-500/30 py-3 rounded-xl flex flex-col items-center justify-center group col-span-1">
-                    <i class="fas fa-undo text-base text-purple-400 group-active:text-white"></i>
+                <button id="ctrl-down" class="bg-gray-800/80 active:bg-blue-600/90 border border-gray-700 py-3.5 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-arrow-down text-lg text-gray-300"></i>
                 </button>
-                <button id="ctrl-down" class="bg-gray-800/80 active:bg-blue-600/90 hover:bg-gray-700/80 border border-gray-700 py-3 rounded-xl flex flex-col items-center justify-center group">
-                    <i class="fas fa-arrow-down text-base text-gray-300 group-active:text-white"></i>
-                </button>
-                <button id="ctrl-rot-r" class="bg-purple-900/40 active:bg-purple-600/90 hover:bg-purple-800/50 border border-purple-500/30 py-3 rounded-xl flex flex-col items-center justify-center group col-span-1">
-                    <i class="fas fa-redo text-base text-purple-400 group-active:text-white"></i>
-                </button>
-                <button id="ctrl-right" class="bg-gray-800/80 active:bg-blue-600/90 hover:bg-gray-700/80 border border-gray-700 py-3 rounded-xl flex flex-col items-center justify-center group">
-                    <i class="fas fa-arrow-right text-base text-gray-300 group-active:text-white"></i>
+                <button id="ctrl-right" class="bg-gray-800/80 active:bg-blue-600/90 border border-gray-700 py-3.5 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-arrow-right text-lg text-gray-300"></i>
                 </button>
             </div>
-            <button id="ctrl-hard" class="w-full bg-gradient-to-r from-indigo-900/60 to-blue-900/60 active:from-indigo-600 active:to-blue-600 border border-indigo-500/30 py-2 rounded-xl font-bold text-xs tracking-wider text-indigo-200 uppercase mt-1">
-                Hard Drop
+        </div>
+
+        <!-- Right Side: Rotations (Action buttons style) -->
+        <div class="flex gap-2 justify-end items-center bg-gray-900/40 p-2 rounded-2xl border border-gray-800/50 w-[42%] h-full">
+            <button id="ctrl-rot-l" class="flex-1 bg-purple-900/50 active:bg-purple-600/90 border border-purple-500/30 py-6 rounded-2xl flex flex-col items-center justify-center group h-[88px]">
+                <i class="fas fa-undo text-lg text-purple-400 group-active:text-white mb-1"></i>
+                <span class="text-[9px] text-purple-300 font-extrabold uppercase">Left</span>
+            </button>
+            <button id="ctrl-rot-r" class="flex-1 bg-pink-900/50 active:bg-pink-600/90 border border-pink-500/30 py-6 rounded-2xl flex flex-col items-center justify-center group h-[88px]">
+                <i class="fas fa-redo text-lg text-pink-400 group-active:text-white mb-1"></i>
+                <span class="text-[9px] text-pink-300 font-extrabold uppercase">Right</span>
             </button>
         </div>
-    </main>
+
+    </div>
 
     <!-- Overlay UI for Messages/Countdown -->
     <div id="overlay-message" class="fixed inset-0 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md z-50 transition-all duration-300 hidden">
@@ -161,10 +250,25 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, updateDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { 
+            getAuth, 
+            signInAnonymously, 
+            signInWithPopup, 
+            GoogleAuthProvider, 
+            signOut, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            updateDoc, 
+            onSnapshot, 
+            getDoc, 
+            collection 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- Firebase Configuration (Provided by user) ---
+        // --- Firebase Config (User's project) ---
         const firebaseConfig = {
             apiKey: "AIzaSyBkMtffenQmKomClPWZa9fD-WKYrhQpoiw",
             authDomain: "puyopuyo-7ea9c.firebaseapp.com",
@@ -174,13 +278,18 @@
             appId: "1:627527369771:web:8803982027fc39d34d166e",
             measurementId: "G-93ZTVJ7V8D"
         };
-        const appNamespace = 'puyo-fall-multiplayer';
+        const appId = 'puyo-fall-multiplayer';
         
-        let db, auth, userId;
+        let db = null;
+        let auth = null;
+        let userId = null;
+        let userProfile = { displayName: "ゲスト", highScore: 0 };
         let matchRef = null;
+        let matchUnsubscribe = null;
         let isPlayer1 = true;
+        let isSoloMode = true;
 
-        /* --- SOUND SYNTHESIS (Enhanced with Synth Chords) --- */
+        /* --- SOUND SYNTHESIS --- */
         class SoundManager {
             constructor() {
                 this.ctx = null;
@@ -240,13 +349,9 @@
                 if (this.muted) return;
                 this.init();
                 const now = this.ctx.currentTime;
-                
-                // より豪華なシンセ和音（アルペジオ風）
-                const baseFreqs = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
+                const baseFreqs = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33, 659.25, 783.99, 880.00];
                 const rootIdx = Math.min(count - 1, baseFreqs.length - 1);
                 const rootFreq = baseFreqs[rootIdx];
-                const thirdFreq = rootFreq * 1.25; // 長3度
-                const fifthFreq = rootFreq * 1.5;  // 完全5度
                 
                 const playSynth = (freq, type, timeStart, timeEnd, vol) => {
                     const osc = this.ctx.createOscillator();
@@ -261,25 +366,12 @@
                     osc.stop(timeEnd);
                 };
 
-                // キラキラ感のある和音を少しずらして鳴らす
                 playSynth(rootFreq, 'square', now, now + 0.5, 0.12);
-                playSynth(thirdFreq, 'triangle', now + 0.05, now + 0.55, 0.12);
-                playSynth(fifthFreq, 'sine', now + 0.1, now + 0.6, 0.12);
+                playSynth(rootFreq * 1.25, 'triangle', now + 0.05, now + 0.55, 0.12);
+                playSynth(rootFreq * 1.5, 'sine', now + 0.1, now + 0.6, 0.12);
 
-                // 大連鎖（3連鎖以上）で低音の響きと迫力を追加
                 if (count >= 3) {
                     playSynth(rootFreq / 2, 'sawtooth', now, now + 0.6, 0.15);
-                    const subOsc = this.ctx.createOscillator();
-                    const subGain = this.ctx.createGain();
-                    subOsc.type = 'sine';
-                    subOsc.frequency.setValueAtTime(150, now);
-                    subOsc.frequency.exponentialRampToValueAtTime(20, now + 0.4);
-                    subGain.gain.setValueAtTime(0.4, now);
-                    subGain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-                    subOsc.connect(subGain);
-                    subGain.connect(this.ctx.destination);
-                    subOsc.start(now);
-                    subOsc.stop(now + 0.4);
                 }
             }
             playGameOver() {
@@ -303,6 +395,7 @@
         }
         const sound = new SoundManager();
 
+        // Sound listener
         document.getElementById('sound-toggle').addEventListener('click', () => {
             sound.muted = !sound.muted;
             const icon = document.getElementById('sound-icon');
@@ -314,7 +407,17 @@
             }
         });
 
-        // --- GAME CONSTANTS ---
+        /* --- Toast System --- */
+        function showToast(message) {
+            const toast = document.getElementById('toast-notification');
+            toast.textContent = message;
+            toast.style.opacity = '1';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+            }, 3000);
+        }
+
+        // --- GAME ENGINE CONSTANTS ---
         const COLS = 6;
         const ROWS = 12;
         const COLORS = {
@@ -365,6 +468,7 @@
                 this.flashAlpha = 0;
                 this.eyeLookDir = { x: 0, y: 0 };
                 this.lastEyeMove = 0;
+                this.isHandlingHardDrop = false;
                 
                 this.resizeCanvas();
                 window.addEventListener('resize', () => this.resizeCanvas());
@@ -375,157 +479,13 @@
             }
 
             resizeCanvas() {
-                const height = Math.min(window.innerHeight * 0.5, 420);
+                const height = Math.min(window.innerHeight * 0.45, 380);
                 this.canvas.height = height;
                 this.canvas.width = height * (COLS / ROWS);
                 
-                const oppHeight = Math.min(window.innerHeight * 0.4, 340);
+                const oppHeight = Math.min(window.innerHeight * 0.35, 300);
                 this.oppCanvas.height = oppHeight;
                 this.oppCanvas.width = oppHeight * (COLS / ROWS);
-            }
-
-            async initMultiplayer() {
-                const statusTxt = document.getElementById('connection-status');
-                
-                try {
-                    const app = initializeApp(firebaseConfig);
-                    db = getFirestore(app);
-                    auth = getAuth(app);
-                    
-                    await signInAnonymously(auth);
-                    // Generate unique ID to allow testing on the same browser in different tabs
-                    userId = auth.currentUser.uid + '_' + Math.floor(Math.random()*1000); 
-                    
-                    statusTxt.textContent = "MATCHMAKING...";
-                    statusTxt.className = "text-xs text-blue-300 font-bold uppercase animate-pulse";
-                    
-                    this.joinLobby();
-                } catch (e) {
-                    console.error(e);
-                    this.showOverlay("CONNECTION ERROR", "Firebaseへの接続に失敗しました。<br>設定を確認してください。", true);
-                }
-            }
-
-            async joinLobby() {
-                const lobbyRef = doc(db, appNamespace, 'LOBBY');
-                
-                try {
-                    const lobbySnap = await getDoc(lobbyRef);
-                    if (lobbySnap.exists() && lobbySnap.data().waitingUser && lobbySnap.data().waitingUser !== userId) {
-                        // 誰かが待っている -> 参加して対戦開始
-                        isPlayer1 = false;
-                        const p1Id = lobbySnap.data().waitingUser;
-                        matchRef = doc(db, appNamespace, `MATCH_${p1Id}`);
-                        
-                        await setDoc(matchRef, {
-                            p1Id: p1Id, p2Id: userId,
-                            p1Grid: JSON.stringify(this.createEmptyGrid()), p2Grid: JSON.stringify(this.createEmptyGrid()),
-                            p1Score: 0, p2Score: 0, status: 'playing'
-                        });
-                        
-                        await setDoc(lobbyRef, { waitingUser: null }); // ロビーを空にする
-                        this.startCountdown();
-                        this.listenToMatch();
-                    } else {
-                        // 誰もいない -> 自分が待機
-                        isPlayer1 = true;
-                        matchRef = doc(db, appNamespace, `MATCH_${userId}`);
-                        
-                        await setDoc(lobbyRef, { waitingUser: userId });
-                        await setDoc(matchRef, {
-                            p1Id: userId, p2Id: null,
-                            p1Grid: JSON.stringify(this.grid), p2Grid: JSON.stringify(this.oppGrid),
-                            p1Score: 0, p2Score: 0, status: 'waiting'
-                        });
-                        
-                        this.showOverlay("WAITING...", "対戦相手を探しています<br>URLを友達に送って参加してもらおう！", false);
-                        this.listenToMatch();
-                    }
-                } catch (e) {
-                    console.error("Lobby error:", e);
-                    this.showOverlay("ERROR", "ロビーへのアクセスに失敗しました。<br>Firestoreのルール設定を確認してください。", true);
-                }
-            }
-
-            listenToMatch() {
-                onSnapshot(matchRef, (docSnap) => {
-                    if (!docSnap.exists()) return;
-                    const data = docSnap.data();
-                    
-                    // 相手が参加したらカウントダウン開始
-                    if (isPlayer1 && data.p2Id && this.gameState === STATE_WAITING) {
-                        this.startCountdown();
-                    }
-
-                    // 相手の盤面とスコアを同期
-                    if (this.gameState !== STATE_WAITING && this.gameState !== STATE_COUNTDOWN) {
-                        try {
-                            if (isPlayer1) {
-                                this.oppGrid = JSON.parse(data.p2Grid);
-                                document.getElementById('opponent-score').textContent = data.p2Score;
-                            } else {
-                                this.oppGrid = JSON.parse(data.p1Grid);
-                                document.getElementById('opponent-score').textContent = data.p1Score;
-                            }
-                        } catch(e) {}
-                        
-                        if (data.status === 'gameover_p1' && !isPlayer1) this.endGame(true);
-                        if (data.status === 'gameover_p2' && isPlayer1) this.endGame(true);
-                    }
-                });
-            }
-
-            syncState() {
-                if (!matchRef || this.gameState === STATE_GAMEOVER) return;
-                const updateData = {};
-                if (isPlayer1) {
-                    updateData.p1Grid = JSON.stringify(this.grid);
-                    updateData.p1Score = this.score;
-                } else {
-                    updateData.p2Grid = JSON.stringify(this.grid);
-                    updateData.p2Score = this.score;
-                }
-                updateDoc(matchRef, updateData).catch(e => console.error(e));
-            }
-
-            startCountdown() {
-                this.gameState = STATE_COUNTDOWN;
-                document.getElementById('connection-status').textContent = "ONLINE MATCH";
-                document.getElementById('connection-status').className = "text-xs text-green-400 font-bold uppercase";
-                document.getElementById('opponent-status').classList.add('hidden');
-                
-                const overlay = document.getElementById('overlay-message');
-                const title = document.getElementById('overlay-title');
-                const desc = document.getElementById('overlay-desc');
-                document.getElementById('restart-btn').classList.add('hidden');
-                
-                overlay.classList.remove('hidden');
-                title.className = "text-5xl font-black text-yellow-400 retro-font tracking-wider mb-2 drop-shadow-lg text-center";
-                desc.innerHTML = "対戦相手が見つかりました！";
-                
-                let count = 3;
-                const interval = setInterval(() => {
-                    if (count > 0) {
-                        title.textContent = count;
-                        sound.playPop(1.2 + (3 - count) * 0.2);
-                        count--;
-                    } else {
-                        clearInterval(interval);
-                        title.className = "text-6xl font-black text-red-500 retro-font tracking-wider mb-2 drop-shadow-lg text-center";
-                        title.textContent = "GO!";
-                        sound.playPop(2.0);
-                        desc.innerHTML = "";
-                        
-                        setTimeout(() => {
-                            overlay.classList.add('hidden');
-                            this.grid = this.createEmptyGrid();
-                            this.score = 0;
-                            this.generateNext();
-                            this.spawnPair();
-                            this.syncState();
-                        }, 800);
-                    }
-                }, 1000);
             }
 
             generateNext() {
@@ -589,12 +549,14 @@
             }
 
             hardDrop() {
-                if (this.gameState !== STATE_CONTROL) return;
+                if (this.gameState !== STATE_CONTROL || this.isHandlingHardDrop) return;
+                this.isHandlingHardDrop = true;
                 while (this.canMoveTo(this.activePair.p1.x, this.activePair.p1.y + 1, this.activePair.p2.x, this.activePair.p2.y + 1)) {
                     this.activePair.p1.y++; this.activePair.p2.y++;
                     this.score += 2;
                 }
                 this.lockPair();
+                this.isHandlingHardDrop = false;
             }
 
             lockPair() {
@@ -624,7 +586,7 @@
                     }
                 }
                 if (moved) {
-                    setTimeout(() => this.resolveGravity(), 150);
+                    setTimeout(() => this.resolveGravity(), 120);
                 } else {
                     this.checkMatches();
                 }
@@ -637,7 +599,6 @@
                 for (let r = 0; r < ROWS; r++) {
                     for (let c = 0; c < COLS; c++) {
                         const color = this.grid[r][c];
-                        // 色ブロック(1~5)のみ判定
                         if (color > 0 && color < 6 && !visited[r][c]) {
                             const group = [];
                             const queue = [{r, c}];
@@ -669,6 +630,7 @@
                     
                     const pts = toPop.length * 10 + Math.pow(this.chain, 2.5) * 8;
                     this.score += Math.floor(pts);
+                    
                     document.getElementById('score').textContent = this.score;
                     document.getElementById('mobile-score').textContent = this.score;
                     document.getElementById('chain-count').textContent = this.chain;
@@ -676,7 +638,7 @@
                     sound.playChain(this.chain);
                     this.showBanner(this.chain);
                     
-                    // シェイク＆フラッシュエフェクト（連鎖数で強化）
+                    // Shake and light flashes
                     this.shakeAmount = Math.min(this.chain * 4, 20);
                     this.flashAlpha = Math.min(this.chain * 0.15, 0.8);
                     
@@ -694,7 +656,6 @@
                 const py = gridY * cellH + cellH/2;
                 const fill = COLORS[colorId]?.fill || '#fff';
 
-                // 丸い破片
                 for (let i = 0; i < 8; i++) {
                     const a = Math.random() * Math.PI * 2;
                     const s = 3 + Math.random() * 6;
@@ -703,7 +664,6 @@
                         radius: 3 + Math.random()*4, alpha: 1, color: fill, decay: 0.02 + Math.random()*0.02, type: 'circle'
                     });
                 }
-                // 星形
                 const starCount = Math.min(4 + this.chain * 2, 12);
                 for (let i = 0; i < starCount; i++) {
                     const a = Math.random() * Math.PI * 2;
@@ -747,28 +707,80 @@
                 }, 1500);
             }
 
+            syncState() {
+                if (isSoloMode || !matchRef || this.gameState === STATE_GAMEOVER) return;
+                const updateData = {};
+                if (isPlayer1) {
+                    updateData.p1Grid = JSON.stringify(this.grid);
+                    updateData.p1Score = this.score;
+                } else {
+                    updateData.p2Grid = JSON.stringify(this.grid);
+                    updateData.p2Score = this.score;
+                }
+                updateDoc(matchRef, updateData).catch(e => console.debug(e));
+            }
+
+            async saveHighScore() {
+                if (this.score > userProfile.highScore) {
+                    userProfile.highScore = this.score;
+                    document.getElementById('top-high-score').textContent = this.score;
+                    
+                    if (db && userId) {
+                        try {
+                            const userDocRef = doc(db, 'artifacts', appId, 'users', userId, 'profile', 'data');
+                            await setDoc(userDocRef, {
+                                displayName: userProfile.displayName,
+                                highScore: this.score
+                            }, { merge: true });
+                            showToast("最高得点を更新＆クラウドに保存しました！");
+                        } catch (e) {
+                            console.error("Failed to save score:", e);
+                        }
+                    }
+                }
+            }
+
             endGame(isWinner) {
                 this.gameState = STATE_GAMEOVER;
-                if (!isWinner && matchRef) {
+                
+                if (!isSoloMode && !isWinner && matchRef) {
                     updateDoc(matchRef, { status: isPlayer1 ? 'gameover_p1' : 'gameover_p2' }).catch(()=>{});
                 }
                 
                 sound.playGameOver();
+                this.saveHighScore();
+                
                 const title = isWinner ? "YOU WIN!" : "GAME OVER";
                 const titleClass = isWinner ? "text-yellow-400" : "text-red-500";
-                this.showOverlay(title, `Score: ${this.score}`, true);
+                
+                document.getElementById('overlay-message').classList.remove('hidden');
+                document.getElementById('overlay-title').textContent = title;
                 document.getElementById('overlay-title').className = `text-5xl font-black ${titleClass} retro-font tracking-wider mb-4 drop-shadow-lg text-center`;
+                document.getElementById('overlay-desc').innerHTML = `スコア: <span class="text-yellow-300 font-bold">${this.score}</span><br>最高連鎖: <span class="text-pink-400 font-bold">${this.chain}連鎖</span>`;
+                document.getElementById('restart-btn').classList.remove('hidden');
             }
 
-            showOverlay(titleTxt, descTxt, showBtn) {
-                document.getElementById('overlay-message').classList.remove('hidden');
-                document.getElementById('overlay-title').textContent = titleTxt;
-                document.getElementById('overlay-desc').innerHTML = descTxt;
-                if(showBtn) document.getElementById('restart-btn').classList.remove('hidden');
-                else document.getElementById('restart-btn').classList.add('hidden');
+            quitGame() {
+                // Remove listeners
+                if (matchUnsubscribe) {
+                    matchUnsubscribe();
+                    matchUnsubscribe = null;
+                }
+                
+                this.gameState = STATE_GAMEOVER;
+                matchRef = null;
+                
+                // Reset views
+                document.getElementById('overlay-message').classList.add('hidden');
+                document.getElementById('screen-top').classList.remove('hidden');
+                document.getElementById('opponent-container').classList.add('hidden');
+                document.getElementById('connection-status').textContent = "DISCONNECTED";
+                document.getElementById('connection-status').className = "text-[10px] text-gray-500 font-bold uppercase";
             }
 
             updateAndDraw(now) {
+                if (this.gameState === STATE_WAITING) return;
+
                 if (now - this.lastEyeMove > 1800) {
                     this.eyeLookDir = { x: (Math.random()-0.5)*5, y: (Math.random()-0.5)*5 };
                     this.lastEyeMove = now;
@@ -802,11 +814,10 @@
                     if (p.alpha <= 0) this.particles.splice(i, 1);
                 }
 
-                // --- RENDERING ---
+                // Draw Game Board
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 
                 this.ctx.save();
-                // 画面シェイク
                 if (this.shakeAmount > 0) {
                     this.ctx.translate((Math.random()-0.5)*this.shakeAmount, (Math.random()-0.5)*this.shakeAmount);
                     this.shakeAmount *= 0.85;
@@ -818,16 +829,18 @@
                 this.drawParticles(this.ctx);
                 this.ctx.restore();
 
-                // フラッシュ
+                // Flash Screen on pop
                 if (this.flashAlpha > 0) {
                     this.ctx.fillStyle = `rgba(255, 255, 255, ${this.flashAlpha})`;
                     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
                     this.flashAlpha -= 0.05;
                 }
 
-                // Opponent rendering
-                this.oppCtx.clearRect(0, 0, this.oppCanvas.width, this.oppCanvas.height);
-                this.drawGrid(this.oppCtx, this.oppCanvas, this.oppGrid, [], 0, true);
+                // Draw Opponent if active
+                if (!isSoloMode) {
+                    this.oppCtx.clearRect(0, 0, this.oppCanvas.width, this.oppCanvas.height);
+                    this.drawGrid(this.oppCtx, this.oppCanvas, this.oppGrid, [], 0, true);
+                }
             }
 
             drawGrid(ctx, cvs, gridData, popList, pTimer, isOpponent = false) {
@@ -849,9 +862,8 @@
                                 this.drawNode(ctx, cx, cy, radius * (1 + pTimer*0.5), colId, false, isOpponent);
                                 ctx.restore();
                             } else {
-                                // Connections
                                 const colorConf = COLORS[colId];
-                                if (colorConf && colId !== 6) { // Garbage doesn't connect
+                                if (colorConf && colId !== 6) { 
                                     const check = (dr, dc) => (r+dr>=0 && r+dr<ROWS && c+dc>=0 && c+dc<COLS && gridData[r+dr][c+dc] === colId);
                                     ctx.fillStyle = colorConf.fill;
                                     ctx.beginPath();
@@ -873,7 +885,7 @@
                 const cH = cvs.height / ROWS;
                 const radius = Math.min(cW, cH) * 0.46;
                 
-                // Ghost
+                // Ghost preview
                 let dy1 = this.activePair.p1.y, dy2 = this.activePair.p2.y;
                 while (this.canMoveTo(this.activePair.p1.x, dy1+1, this.activePair.p2.x, dy2+1)) { dy1++; dy2++; }
                 
@@ -891,7 +903,7 @@
                 drawG(this.activePair.p2.x, dy2, this.activePair.p2.c);
                 ctx.restore();
 
-                // Active
+                // Active nodes
                 const drawA = (p) => {
                     if(p.y >= 0) this.drawNode(ctx, p.x*cW+cW/2, p.y*cH+cH/2, radius, p.c, true);
                 };
@@ -922,7 +934,7 @@
                 ctx.lineWidth = 1.5;
                 ctx.stroke();
 
-                // Eyes (skip for garbage)
+                // Cute eyes (Skip on plain gray Garbage blocks)
                 if (colId !== 6) {
                     const eOff = radius * 0.35, eRad = radius * 0.22, pRad = radius * 0.11;
                     ctx.fillStyle = '#fff';
@@ -972,56 +984,364 @@
             }
 
             drawNext() {
+                // Desktop preview
                 this.nextCtx.clearRect(0, 0, this.nextCanvas.width, this.nextCanvas.height);
-                const w = this.nextCanvas.width, h = this.nextCanvas.height, r = Math.min(w,h)*0.2;
+                let w = this.nextCanvas.width, h = this.nextCanvas.height, r = Math.min(w,h)*0.2;
                 this.drawNode(this.nextCtx, w/2, h*0.3, r, this.nextPair.c2, false, true);
                 this.drawNode(this.nextCtx, w/2, h*0.7, r, this.nextPair.c1, false, true);
+
+                // Mobile preview
+                const mobileNextCanvas = document.getElementById('next-canvas-mobile');
+                const mCtx = mobileNextCanvas.getContext('2d');
+                mCtx.clearRect(0, 0, mobileNextCanvas.width, mobileNextCanvas.height);
+                let mw = mobileNextCanvas.width, mh = mobileNextCanvas.height, mr = Math.min(mw,mh)*0.22;
+                this.drawNode(mCtx, mw/2, mh*0.3, mr, this.nextPair.c2, false, true);
+                this.drawNode(mCtx, mw/2, mh*0.7, mr, this.nextPair.c1, false, true);
             }
         }
 
-        let game;
-        window.onload = function() {
-            game = new MultiplayerGame();
-            game.initMultiplayer();
+        // --- GAME INSTANCE ---
+        let game = new MultiplayerGame();
 
-            document.addEventListener('keydown', (e) => {
-                if (game.gameState === STATE_GAMEOVER || game.gameState === STATE_WAITING || game.gameState === STATE_COUNTDOWN) return;
-                switch(e.code) {
-                    case 'ArrowLeft': game.move(-1); break;
-                    case 'ArrowRight': game.move(1); break;
-                    case 'ArrowUp': case 'KeyX': game.rotate(1); break;
-                    case 'KeyZ': game.rotate(-1); break;
-                    case 'ArrowDown': game.isFastDropping = true; break;
-                    case 'Space': game.hardDrop(); break;
-                }
-            });
-            document.addEventListener('keyup', (e) => { if(e.code === 'ArrowDown') game.isFastDropping = false; });
+        // --- FIREBASE INITIALIZATION & USER CONFIGS ---
+        let matchmakerLobbyRef = null;
+        let matchmakerInstanceRef = null;
 
-            const bindBtn = (id, down, up) => {
-                const el = document.getElementById(id);
-                const start = (e) => { e.preventDefault(); down(); };
-                const end = (e) => { e.preventDefault(); if(up) up(); };
-                el.addEventListener('touchstart', start); el.addEventListener('mousedown', start);
-                el.addEventListener('touchend', end); el.addEventListener('mouseup', end);
-                el.addEventListener('mouseleave', end);
-            };
+        async function setupFirebase() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
 
-            bindBtn('ctrl-left', () => game.move(-1));
-            bindBtn('ctrl-right', () => game.move(1));
-            bindBtn('ctrl-rot-l', () => game.rotate(-1));
-            bindBtn('ctrl-rot-r', () => game.rotate(1));
-            bindBtn('ctrl-down', () => { game.isFastDropping = true; }, () => { game.isFastDropping = false; });
-            bindBtn('ctrl-hard', () => game.hardDrop());
+                // Handle Auth States
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        document.getElementById('auth-unlogged').classList.add('hidden');
+                        document.getElementById('auth-logged').classList.remove('hidden');
+                        
+                        // Load Profiling details
+                        const userDocRef = doc(db, 'artifacts', appId, 'users', userId, 'profile', 'data');
+                        const docSnap = await getDoc(userDocRef);
+                        
+                        if (docSnap.exists()) {
+                            userProfile = docSnap.data();
+                        } else {
+                            userProfile = {
+                                displayName: user.displayName || `Puyo-${Math.floor(Math.random()*9000+1000)}`,
+                                highScore: 0
+                            };
+                            await setDoc(userDocRef, userProfile);
+                        }
+                        
+                        document.getElementById('top-username').textContent = userProfile.displayName;
+                        document.getElementById('input-username').value = userProfile.displayName;
+                        document.getElementById('top-high-score').textContent = userProfile.highScore;
+                        document.getElementById('player-label-name').textContent = userProfile.displayName.toUpperCase();
+                    } else {
+                        // Unauthenticated or Logged-out state
+                        userId = null;
+                        userProfile = { displayName: "ゲスト", highScore: 0 };
+                        document.getElementById('auth-unlogged').classList.remove('hidden');
+                        document.getElementById('auth-logged').classList.add('hidden');
+                        document.getElementById('top-username').textContent = "ゲスト";
+                        document.getElementById('top-high-score').textContent = "0";
+                        document.getElementById('player-label-name').textContent = "YOU";
+                    }
+                });
 
-            document.getElementById('restart-btn').addEventListener('click', () => {
-                document.getElementById('overlay-message').classList.add('hidden');
-                game.initMultiplayer(); // Re-queue
-            });
-
-            function loop(timestamp) {
-                game.updateAndDraw(timestamp);
-                requestAnimationFrame(loop);
+            } catch (error) {
+                console.error("Firebase setup failed:", error);
+                showToast("データベースへの接続に失敗しました。");
             }
+        }
+
+        // Google Sign-in Handlers
+        document.getElementById('btn-google-login').addEventListener('click', async () => {
+            if (!auth) return;
+            const provider = new GoogleAuthProvider();
+            try {
+                await signInWithPopup(auth, provider);
+                showToast("Googleアカウントでサインインしました。");
+            } catch (err) {
+                console.error("Google Auth error:", err);
+                showToast("ポップアップがブロックされたか、認証に失敗しました。");
+            }
+        });
+
+        // Anonymous login fallback
+        document.getElementById('btn-guest-login').addEventListener('click', async () => {
+            if (!auth) return;
+            try {
+                await signInAnonymously(auth);
+                showToast("ゲストとしてログインしました。");
+            } catch (err) {
+                console.error("Guest Auth error:", err);
+                showToast("ログインに失敗しました。");
+            }
+        });
+
+        // Logout
+        document.getElementById('btn-logout').addEventListener('click', async () => {
+            if (!auth) return;
+            try {
+                await signOut(auth);
+                showToast("ログアウトしました。");
+            } catch (err) {
+                console.error("Logout error:", err);
+            }
+        });
+
+        // Update profile username
+        document.getElementById('btn-update-name').addEventListener('click', async () => {
+            const newName = document.getElementById('input-username').value.trim();
+            if (!newName) return;
+            userProfile.displayName = newName;
+            document.getElementById('top-username').textContent = newName;
+            document.getElementById('player-label-name').textContent = newName.toUpperCase();
+            
+            if (db && userId) {
+                const userDocRef = doc(db, 'artifacts', appId, 'users', userId, 'profile', 'data');
+                await setDoc(userDocRef, { displayName: newName }, { merge: true });
+                showToast("ユーザー名を変更しました！");
+            }
+        });
+
+        // Mode: Solo Play
+        document.getElementById('btn-mode-solo').addEventListener('click', () => {
+            isSoloMode = true;
+            document.getElementById('screen-top').classList.add('hidden');
+            document.getElementById('opponent-container').classList.add('hidden');
+            document.getElementById('connection-status').textContent = "SOLO GAME";
+            document.getElementById('connection-status').className = "text-[10px] text-blue-400 font-bold uppercase";
+            
+            startCountdown();
+        });
+
+        // Mode: Online Play (Matchmaking Queue)
+        document.getElementById('btn-mode-multi').addEventListener('click', () => {
+            if (!db || !userId) {
+                showToast("対戦をするには、先にログインするかゲストを選択してください。");
+                return;
+            }
+            isSoloMode = false;
+            document.getElementById('screen-top').classList.add('hidden');
+            document.getElementById('opponent-container').classList.remove('hidden');
+            document.getElementById('opponent-status').classList.remove('hidden');
+            document.getElementById('opponent-status-text').innerHTML = "MATCHMAKING...<br>対戦相手を探しています";
+            document.getElementById('connection-status').textContent = "FINDING OPPONENT...";
+            document.getElementById('connection-status').className = "text-[10px] text-yellow-500 font-bold uppercase animate-pulse";
+            
+            initiateMatchmaking();
+        });
+
+        // In-game Exit handler
+        document.getElementById('btn-back-to-menu').addEventListener('click', () => {
+            game.quitGame();
+        });
+
+        // Matchmaking Queue loop
+        async function initiateMatchmaking() {
+            const lobbyDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'matchmaking', 'lobby');
+            try {
+                const lobbySnap = await getDoc(lobbyDocRef);
+                
+                if (lobbySnap.exists() && lobbySnap.data().waitingUser && lobbySnap.data().waitingUser !== userId) {
+                    // Match found! Join as Player 2
+                    isPlayer1 = false;
+                    const p1Id = lobbySnap.data().waitingUser;
+                    const p1Name = lobbySnap.data().waitingUserName || "対戦相手";
+                    
+                    document.getElementById('opponent-label-name').textContent = p1Name.toUpperCase();
+                    
+                    matchRef = doc(db, 'artifacts', appId, 'public', 'data', 'matches', `MATCH_${p1Id}`);
+                    await setDoc(matchRef, {
+                        p1Id: p1Id,
+                        p1Name: p1Name,
+                        p2Id: userId,
+                        p2Name: userProfile.displayName,
+                        p1Grid: JSON.stringify(game.createEmptyGrid()),
+                        p2Grid: JSON.stringify(game.createEmptyGrid()),
+                        p1Score: 0,
+                        p2Score: 0,
+                        status: 'playing'
+                    });
+                    
+                    // Clear lobby
+                    await setDoc(lobbyDocRef, { waitingUser: null, waitingUserName: null });
+                    startCountdown();
+                    listenToMatch();
+                } else {
+                    // Host match: Join as Player 1 and wait
+                    isPlayer1 = true;
+                    matchRef = doc(db, 'artifacts', appId, 'public', 'data', 'matches', `MATCH_${userId}`);
+                    await setDoc(lobbyDocRef, { 
+                        waitingUser: userId, 
+                        waitingUserName: userProfile.displayName 
+                    });
+                    await setDoc(matchRef, {
+                        p1Id: userId,
+                        p1Name: userProfile.displayName,
+                        p2Id: null,
+                        p2Name: "",
+                        p1Grid: JSON.stringify(game.grid),
+                        p2Grid: JSON.stringify(game.oppGrid),
+                        p1Score: 0,
+                        p2Score: 0,
+                        status: 'waiting'
+                    });
+                    
+                    listenToMatch();
+                }
+            } catch (err) {
+                console.error(err);
+                showToast("マッチングサーバーにエラーが発生しました。");
+                game.quitGame();
+            }
+        }
+
+        // Live listening to active Match
+        function listenToMatch() {
+            if (matchUnsubscribe) matchUnsubscribe();
+            
+            matchUnsubscribe = onSnapshot(matchRef, (docSnap) => {
+                if (!docSnap.exists() || game.gameState === STATE_GAMEOVER) return;
+                const data = docSnap.data();
+                
+                // Match start trigger
+                if (isPlayer1 && data.p2Id && game.gameState === STATE_WAITING) {
+                    document.getElementById('opponent-label-name').textContent = data.p2Name.toUpperCase();
+                    startCountdown();
+                }
+
+                // In-game opponent update syncing
+                if (game.gameState !== STATE_WAITING && game.gameState !== STATE_COUNTDOWN) {
+                    try {
+                        if (isPlayer1) {
+                            game.oppGrid = JSON.parse(data.p2Grid);
+                            document.getElementById('opponent-score').textContent = data.p2Score;
+                        } else {
+                            game.oppGrid = JSON.parse(data.p1Grid);
+                            document.getElementById('opponent-score').textContent = data.p1Score;
+                        }
+                    } catch(e) {}
+                    
+                    // Live Game Over conditions
+                    if (data.status === 'gameover_p1' && !isPlayer1) game.endGame(true);
+                    if (data.status === 'gameover_p2' && isPlayer1) game.endGame(true);
+                }
+            }, (error) => {
+                console.error("Match updates listen failed:", error);
+            });
+        }
+
+        // Standard Match/Solo starts countdown
+        function startCountdown() {
+            game.gameState = STATE_COUNTDOWN;
+            document.getElementById('opponent-status').classList.add('hidden');
+            
+            if (!isSoloMode) {
+                document.getElementById('connection-status').textContent = "ONLINE MATCH";
+                document.getElementById('connection-status').className = "text-[10px] text-green-400 font-bold uppercase";
+            } else {
+                document.getElementById('connection-status').textContent = "SOLO MATCH";
+                document.getElementById('connection-status').className = "text-[10px] text-blue-400 font-bold uppercase";
+            }
+            
+            const overlay = document.getElementById('overlay-message');
+            const title = document.getElementById('overlay-title');
+            const desc = document.getElementById('overlay-desc');
+            document.getElementById('restart-btn').classList.add('hidden');
+            
+            overlay.classList.remove('hidden');
+            title.className = "text-5xl font-black text-yellow-400 retro-font tracking-wider mb-2 text-center drop-shadow-lg animate-pulse";
+            title.textContent = "READY?";
+            desc.innerHTML = isSoloMode ? "ぷよを決まった色で4個つなげよう！" : "対戦相手が見つかりました！";
+            
+            let count = 3;
+            const interval = setInterval(() => {
+                if (count > 0) {
+                    title.textContent = count;
+                    sound.playPop(1.2 + (3 - count) * 0.2);
+                    count--;
+                } else {
+                    clearInterval(interval);
+                    title.className = "text-6xl font-black text-red-500 retro-font tracking-wider mb-2 text-center drop-shadow-lg";
+                    title.textContent = "GO!";
+                    sound.playPop(2.0);
+                    desc.innerHTML = "";
+                    
+                    setTimeout(() => {
+                        overlay.classList.add('hidden');
+                        game.grid = game.createEmptyGrid();
+                        game.score = 0;
+                        document.getElementById('score').textContent = "0";
+                        document.getElementById('mobile-score').textContent = "0";
+                        document.getElementById('chain-count').textContent = "0";
+                        
+                        game.generateNext();
+                        game.spawnPair();
+                    }, 800);
+                }
+            }, 1000);
+        }
+
+        // --- KEY & TOUCH BINDINGS (Mobile Optimised Layout) ---
+        document.addEventListener('keydown', (e) => {
+            if (game.gameState === STATE_GAMEOVER || game.gameState === STATE_WAITING || game.gameState === STATE_COUNTDOWN) return;
+            switch(e.code) {
+                case 'ArrowLeft': game.move(-1); break;
+                case 'ArrowRight': game.move(1); break;
+                case 'ArrowUp': case 'KeyX': game.rotate(1); break;
+                case 'KeyZ': game.rotate(-1); break;
+                case 'ArrowDown': game.isFastDropping = true; break;
+                case 'Space': game.hardDrop(); break;
+            }
+        });
+        document.addEventListener('keyup', (e) => { 
+            if(e.code === 'ArrowDown') game.isFastDropping = false; 
+        });
+
+        // Touch Gamepad binders
+        const bindBtn = (id, down, up) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const start = (e) => { e.preventDefault(); down(); };
+            const end = (e) => { e.preventDefault(); if(up) up(); };
+            
+            el.addEventListener('touchstart', start); 
+            el.addEventListener('mousedown', start);
+            el.addEventListener('touchend', end); 
+            el.addEventListener('mouseup', end);
+            el.addEventListener('mouseleave', end);
+        };
+
+        bindBtn('ctrl-left', () => game.move(-1));
+        bindBtn('ctrl-right', () => game.move(1));
+        bindBtn('ctrl-rot-l', () => game.rotate(-1));
+        bindBtn('ctrl-rot-r', () => game.rotate(1));
+        bindBtn('ctrl-down', () => { game.isFastDropping = true; }, () => { game.isFastDropping = false; });
+        bindBtn('ctrl-hard', () => game.hardDrop());
+
+        // Play Again / Restart Game Handler
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            document.getElementById('overlay-message').classList.add('hidden');
+            if (isSoloMode) {
+                startCountdown();
+            } else {
+                game.quitGame();
+            }
+        });
+
+        // Core animation Loop
+        function loop(timestamp) {
+            game.updateAndDraw(timestamp);
+            requestAnimationFrame(loop);
+        }
+
+        // App Bootup
+        window.onload = function() {
+            setupFirebase();
             requestAnimationFrame(loop);
         };
     </script>
